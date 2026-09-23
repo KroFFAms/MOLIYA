@@ -902,7 +902,7 @@ function exportFullHtml(silent, customName, safe){
     <div style="font-size:12px;font-weight:600;color:#1F4E79;margin-bottom:8px">🧹 Ishlatilmayotgan bo’limlarni ko’rsatish</div>
     <label style="display:flex;align-items:center;gap:7px;font-size:12px;margin-bottom:5px;cursor:pointer"><input type="checkbox" id="soz_show_pen"> 🔨 Penablok bo’limi</label>
     <label style="display:flex;align-items:center;gap:7px;font-size:12px;margin-bottom:5px;cursor:pointer"><input type="checkbox" id="soz_show_xarq"> 👥 Xaridorlar qarz aylanmasi</label>
-    <label style="display:flex;align-items:center;gap:7px;font-size:12px;margin-bottom:5px;cursor:pointer"><input type="checkbox" id="soz_show_bulush"> 🏗️ Birja: “Pul tushgan oy”, “Shug’ullangan xodim” va “ulush” ustunlari</label>
+    <label style="display:flex;align-items:center;gap:7px;font-size:12px;margin-bottom:5px;cursor:pointer"><input type="checkbox" id="soz_show_bulush"> 🏗️ Birja: “Pul tushgan oy” ustuni</label>
     <label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer"><input type="checkbox" id="soz_show_hr"> 🏦 Qo’shimcha HR hisoblari (ASTRA, SALIMOVA…)</label>
     <div style="font-size:11px;color:#888;margin-top:6px">Bular hech qachon to’ldirilmagani uchun yashirilgan. Kerak bo’lsa belgilang.</div>
   </div>
@@ -6524,7 +6524,8 @@ function renderEntry(){
 
   // BIRJA
   var _bul=!!SOZ.hide_bulush;
-  var br='<div style="overflow:auto"><table style="min-width:1090px;font-size:11px"><thead><tr style="background:#1F4E79;color:#fff"><th>Shartnoma\u2116</th><th>Sana</th><th>Xaridor</th><th>Tovar</th><th>Miqdor</th><th>Summa</th><th>Holat</th>'+(_bul?'':'<th>Pul tushgan oy</th>')+'<th>Ta\u2019minotchi</th><th>Xarajat (HR)</th><th style="white-space:nowrap">\ud83c\udfe0 Ichki kassa (naqd)</th><th style="white-space:nowrap">\ud83d\udcb3 Payme 1 (karta)</th><th style="white-space:nowrap">\ud83d\udcf1 Payme 2</th><th style="white-space:nowrap">% soliq</th><th style="white-space:nowrap">Soliq summa</th><th style="white-space:nowrap">Sof qoldiq</th>'+(_bul?'':'<th style="white-space:nowrap">\ud83d\udc64 Shug\u2019ullangan xodim</th><th style="white-space:nowrap">% ulush</th><th style="white-space:nowrap">Ulush summa</th>')+'<th></th></tr></thead><tbody>';
+  var _bulX=false; /* xodim va % ulush ustunlari doim ko'rinadi */
+  var br='<div style="overflow:auto"><table style="min-width:1090px;font-size:11px"><thead><tr style="background:#1F4E79;color:#fff"><th>Shartnoma\u2116</th><th>Sana</th><th>Xaridor</th><th>Tovar</th><th>Miqdor</th><th>Summa</th><th>Holat</th>'+(_bul?'':'<th>Pul tushgan oy</th>')+'<th>Ta\u2019minotchi</th><th>Xarajat (HR)</th><th style="white-space:nowrap">\ud83c\udfe0 Ichki kassa (naqd)</th><th style="white-space:nowrap">\ud83d\udcb3 Payme 1 (karta)</th><th style="white-space:nowrap">\ud83d\udcf1 Payme 2</th><th style="white-space:nowrap">% soliq</th><th style="white-space:nowrap">Soliq summa</th><th style="white-space:nowrap">Sof qoldiq</th>'+(_bulX?'':'<th style="white-space:nowrap">\ud83d\udc64 Shug\u2019ullangan xodim</th><th style="white-space:nowrap">% ulush</th><th style="white-space:nowrap">Ulush summa</th>')+'<th></th></tr></thead><tbody>';
   (E.birja.contracts||[]).forEach(function(c,bi){br+='<tr>'+
     '<td style="white-space:nowrap">'+(c._koch?'<span title="'+c._koch+' oydan ko\u2018chirilgan" style="color:#BA7517;font-size:12px;margin-right:2px">\u21b3</span>':'')+_inp('birja.contracts.'+bi+'.shartnoma',c.shartnoma,80,true)+'</td>'+
     '<td>'+_inp('birja.contracts.'+bi+'.sana',c.sana,72,true)+'</td>'+
@@ -6544,7 +6545,7 @@ function renderEntry(){
     '</select></td>'+
     '<td data-bxs="'+bi+'" style="text-align:right;color:#a32d2d;white-space:nowrap">'+fmt(_bxSoliq(c))+'</td>'+
     '<td data-bxq="'+bi+'" style="text-align:right;font-weight:600;color:#1F4E79;white-space:nowrap">'+fmt(_bxQold(c))+'</td>'+
-    (_bul?'':'<td>'+_inp('birja.contracts.'+bi+'.xodim',c.xodim,110,true)+'</td>'+
+    (_bulX?'':'<td>'+_inp('birja.contracts.'+bi+'.xodim',c.xodim,110,true)+'</td>'+
     '<td><select data-p="birja.contracts.'+bi+'.ulush" data-t="s" style="font-size:11px;padding:3px">'+
       [0,10,20,30].map(function(u){return '<option value="'+u+'"'+((Number(c.ulush)||0)===u?' selected':'')+'>'+(u?u+'%':'\u2014')+'</option>';}).join('')+
     '</select></td>'+
