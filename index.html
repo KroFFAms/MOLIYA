@@ -8980,10 +8980,12 @@ function chiz(){var r=$(ROOT);if(!r||!INIT)return;r.classList.add('myw');
    '<div class="my-sync '+SYNC[1]+'" id="mySync">'+esc(SYNC[0]||'')+'</div></div></div>'+
    '<div class="my-nav">'+[['list','📋 Ro\u2019yxat'],['yangi','➕ Yangi yordam'],['um','⚖️ Kim kimga qarzdor'],['tz','🧮 Tezkor hisob'],['rekv','🏢 Rekvizitlar va sozlama']].map(function(v){
      return '<button class="'+(VIEW===v[0]||(VIEW==='det'&&v[0]==='list')?'on':'')+'" onclick="MY.go(\''+v[0]+'\')">'+v[1]+'</button>';}).join('')+'</div>'+
-   '<div id="myBanner"></div><div id="myBody"></div>';
+   '<div id="myBanner"></div><div id="myBody"></div><datalist id="myKorxList">'+S.korxonalar.map(function(k){return '<option value="'+esc(k)+'">';}).join('')+'</datalist>';
   chizBanner();
   ({list:vList,yangi:vYangi,det:vDet,um:vUm,tz:vTz,rekv:vRekv}[VIEW]||vList)();
 }
+function korxQosh(n){n=String(n||'').replace(/\s+/g,' ').trim();if(n&&S.korxonalar.indexOf(n)<0)S.korxonalar.push(n);return n;}
+function korxInp(attr,val){return '<input list="myKorxList" autocomplete="off" '+attr+' value="'+esc(val||'')+'" placeholder="tanlang yoki yozing">';}
 function korxOpts(val){var o=S.korxonalar.slice();if(val&&o.indexOf(val)<0)o.push(val);return o.map(function(x){return '<option'+(x===val?' selected':'')+'>'+esc(x)+'</option>';}).join('');}
 
 /* Ro'yxat */
@@ -9016,8 +9018,8 @@ function vYangi(){
   var k=S.korxonalar;
   $('myBody').innerHTML='<div class="my-box"><h3>Yangi moliyaviy yordam</h3>'+
   '<div class="my-grid">'+
-   '<div><label>Beruvchi (qarz beruvchi)</label><select id="ny_ber">'+korxOpts(k[0])+'</select></div>'+
-   '<div><label>Oluvchi (qarz oluvchi)</label><select id="ny_ol">'+korxOpts(k[1]||'')+'</select></div>'+
+   '<div><label>Beruvchi (qarz beruvchi)</label>'+korxInp('id="ny_ber"','')+'</div>'+
+   '<div><label>Oluvchi (qarz oluvchi)</label>'+korxInp('id="ny_ol"','')+'</div>'+
    '<div><label>Summa, so\u2019m</label><input id="ny_sum" class="num" placeholder="masalan, 44 000 000" onchange="this.value=MY._f(this.value)"></div>'+
    '<div><label>Berilgan sana</label><input id="ny_sana" type="date" value="'+ASOF+'" onchange="MY.nyRaqam()"></div>'+
    '<div><label>Yillik foiz stavkasi, %</label><input id="ny_st" class="num" placeholder="masalan, 25"></div>'+
@@ -9029,18 +9031,18 @@ function vYangi(){
    '<div><label>Kechikish stavkasi, % (ixtiyoriy)</label><input id="ny_kech" class="num" placeholder="bo\u2019sh = yo\u2019q"></div>'+
    '<div class="w2"><label>Izoh (ixtiyoriy)</label><input id="ny_iz"></div>'+
   '</div>'+
-  '<p class="mut" style="margin-top:10px">Qaytarish sanasi hozir kiritilmaydi — pul qaytarilganda ro\u2019yxatdagi «💵 Qaytarish» tugmasi bilan belgilanadi, foiz o\u2019sha kungacha avtomatik hisoblanadi.</p>'+
+  '<p class="mut" style="margin-top:10px">Korxona ro\u2019yxatda bo\u2019lmasa, nomini qo\u2019lda yozing — saqlanganda ro\u2019yxatga o\u2019zi qo\u2019shiladi. Qaytarish sanasi hozir kiritilmaydi — pul qaytarilganda ro\u2019yxatdagi «💵 Qaytarish» tugmasi bilan belgilanadi, foiz o\u2019sha kungacha avtomatik hisoblanadi.</p>'+
   '<div id="ny_err"></div>'+
   '<div class="row" style="margin-top:12px"><button class="btn" onclick="MY.nySaqla(1)">✅ Saqlash va shartnomani ochish</button><button class="btn o" onclick="MY.nySaqla(0)">Faqat saqlash</button><span class="sp"></span><button class="btn r" onclick="MY.go(\'list\')">Bekor</button></div></div>';
 }
 function nySaqla(ochish){
-  var ber=$('ny_ber').value,ol=$('ny_ol').value,sum=num($('ny_sum').value),sana=$('ny_sana').value,st=$('ny_st').value.trim();
-  var err=[];if(!sana)err.push('Berilgan sanani kiriting.');if(sum<=0)err.push('Summani kiriting.');if(ber===ol)err.push('Beruvchi va oluvchi bir xil bo\u2019lmasin.');if(st==='')err.push('Foiz stavkasini kiriting (foizsiz bo\u2019lsa 0).');
+  var ber=$('ny_ber').value.replace(/\s+/g,' ').trim(),ol=$('ny_ol').value.replace(/\s+/g,' ').trim(),sum=num($('ny_sum').value),sana=$('ny_sana').value,st=$('ny_st').value.trim();
+  var err=[];if(!ber||!ol)err.push('Beruvchi va oluvchini tanlang yoki yozing.');if(!sana)err.push('Berilgan sanani kiriting.');if(sum<=0)err.push('Summani kiriting.');if(ber===ol)err.push('Beruvchi va oluvchi bir xil bo\u2019lmasin.');if(st==='')err.push('Foiz stavkasini kiriting (foizsiz bo\u2019lsa 0).');
   if(err.length){$('ny_err').innerHTML='<div class="my-msg o">'+err.join(' ')+'</div>';return;}
   var s={id:uid(),raqam:$('ny_raq').value.trim()||keyingiRaqam(sana),sana:sana,beruvchi:ber,oluvchi:ol,muddat:$('ny_mud').value,asos:+$('ny_asos').value,kun:$('ny_kun').value,
     kech:$('ny_kech').value.trim(),maqsad:$('ny_maq').value.trim(),izoh:$('ny_iz').value.trim(),
     stavkalar:[{id:uid(),sana:sana,stavka:num(st)}],harakatlar:[{id:uid(),sana:sana,tur:'berildi',summa:sum,izoh:''}]};
-  S.sh.unshift(s);saqla();SEL=s.id;VIEW='det';chiz();if(ochish)shartnoma(s.id);
+  korxQosh(ber);korxQosh(ol);S.sh.unshift(s);saqla();SEL=s.id;VIEW='det';chiz();if(ochish)shartnoma(s.id);
 }
 
 /* Batafsil */
@@ -9067,8 +9069,8 @@ function vDet(qayFocus){
   '<details class="my-box"><summary>Shartnoma ma\u2019lumotlari va stavka</summary><div class="my-grid" style="margin-top:8px">'+
    '<div><label>Shartnoma raqami</label><input data-k="raqam" value="'+esc(s.raqam)+'" onchange="MY.sEd(this)"></div>'+
    '<div><label>Shartnoma sanasi</label><input type="date" data-k="sana" value="'+esc(s.sana)+'" onchange="MY.sEd(this)"></div>'+
-   '<div><label>Beruvchi</label><select data-k="beruvchi" onchange="MY.sEd(this)">'+korxOpts(s.beruvchi)+'</select></div>'+
-   '<div><label>Oluvchi</label><select data-k="oluvchi" onchange="MY.sEd(this)">'+korxOpts(s.oluvchi)+'</select></div>'+
+   '<div><label>Beruvchi</label>'+korxInp('data-k="beruvchi" onchange="MY.sEd(this)"',s.beruvchi)+'</div>'+
+   '<div><label>Oluvchi</label>'+korxInp('data-k="oluvchi" onchange="MY.sEd(this)"',s.oluvchi)+'</div>'+
    '<div><label>Kunlarni sanash</label><select data-k="kun" onchange="MY.sEd(this)"><option value="ikkala"'+(s.kun==='ikkala'?' selected':'')+'>Berilgan va qaytarilgan kun ikkalasi ham</option><option value="farq"'+(s.kun!=='ikkala'?' selected':'')+'>Berilgan kun kirmaydi (bank usuli)</option></select></div>'+
    '<div><label>Yil bazasi</label><select data-k="asos" onchange="MY.sEd(this)">'+[365,360,366].map(function(v){return '<option'+(+s.asos===v?' selected':'')+'>'+v+'</option>';}).join('')+'</select></div>'+
    '<div><label>Oxirgi muddat (ixtiyoriy)</label><input type="date" data-k="muddat" value="'+esc(s.muddat)+'" onchange="MY.sEd(this)"></div>'+
@@ -9287,7 +9289,7 @@ var API={
   fk:function(v){FK=v;vList();}, yopiq:function(v){YOPIQ=v;vList();},
   nyRaqam:function(){var e=$('ny_raq');if(e&&/^MY-\d{4}\/\d+$/.test(e.value))e.value=keyingiRaqam($('ny_sana').value);},
   nySaqla:nySaqla, qPrev:qPrev, qSaqla:qSaqla,
-  sEd:function(el){var s=shById(SEL),k=el.getAttribute('data-k');s[k]=k==='asos'?+el.value:el.value;saqla();natija();},
+  sEd:function(el){var s=shById(SEL),k=el.getAttribute('data-k'),v=el.value;if(k==='beruvchi'||k==='oluvchi'){v=korxQosh(v);if(!v){el.value=s[k];return;}el.value=v;}s[k]=k==='asos'?+v:v;saqla();natija();},
   hEd:function(el){var o=hRow(el),f=el.getAttribute('data-f'),h=o.s.harakatlar.filter(function(x){return x.id===o.tr.getAttribute('data-h');})[0];if(!h)return;
     h[f]=f==='summa'?num(el.value):el.value;if(f==='summa')el.value=fmtIn(h.summa);saqla();natija();},
   hDel:function(id){var s=shById(SEL),h=s.harakatlar.filter(function(x){return x.id===id;})[0];if(!h)return;
