@@ -8171,10 +8171,10 @@ var XADAV=null;
 function admTab(t){
   XADMT=t;
   var tabs=[['hisob','Hisob-kitob'],['davomat','Davomat'],['vazifa','Vazifalar'],
-            ['natija','Natija'],['shablon','Takror vazifa'],['xodim','Xodimlar'],['nomzod','Nomzodlar'],['soz','Sozlamalar']];
+            ['natija','Natija'],['shablon','Takror vazifa'],['xodim','Xodimlar'],['nomzod','Nomzodlar'],['savol','Test savollari'],['soz','Sozlamalar']];
   x$('admTabs').innerHTML=tabs.map(function(a){
     return '<button class="'+(XADMT===a[0]?'on':'')+'" onclick="admTab(\''+a[0]+'\')">'+a[1]+'</button>'}).join('');
-  ({hisob:aHisob,davomat:aDavomat,vazifa:aVazifa,natija:aNatija,shablon:aShablon,xodim:aXodim,nomzod:aNomzod,soz:aSoz})[t]();
+  ({hisob:aHisob,davomat:aDavomat,vazifa:aVazifa,natija:aNatija,shablon:aShablon,xodim:aXodim,nomzod:aNomzod,savol:aSavol,soz:aSoz})[t]();
 }
 function davrBar(){
   var d=XADAV||davrHoz();
@@ -8711,6 +8711,7 @@ function nzDetail(i){
     '<label>Izoh (faqat rahbar ko‘radi)</label><textarea id="nzIz" rows="2">'+xesc(r.izoh||'')+'</textarea>'+
     '<div style="height:12px"></div><button class="btn" onclick="nzSave('+i+')">Saqlash</button>'+
     '<div style="height:8px"></div><button class="btn ok" onclick="nzHire('+i+')">➕ Xodimlar ro‘yxatiga qo‘shish</button>'+
+    '<div style="height:8px"></div><button class="btn g" style="color:#c0392b" onclick="nzDel('+i+')">\ud83d\uddd1 O\u2018chirish</button>'+
     '<div style="height:8px"></div><button class="btn g" onclick="closeSheet()">Yopish</button>');
 }
 function nzSave(i){
@@ -8724,6 +8725,264 @@ function nzHire(i){
   tPatch('id=eq.'+encodeURIComponent(r.id),{holat:'Ishga olindi'}).then(function(){r.holat='Ishga olindi'}).catch(function(){});
   xForm(null,{ism:r.ism, tel:r.tel});
 }
+var TQ_BASE = [
+/* ---------- KOMPYUTER VA ONLAYN (9) ---------- */
+{s:'komp',t:'Excelda A1 dan A10 gacha bo\u2018lgan raqamlarning jamini qaysi formula chiqaradi?',
+ o:['=JAMI(A1:A10)','=SUM(A1:A10)','=PLUS(A1:A10)','=TOTAL(A1:A10)'],c:1},
+{s:'komp',t:'Klaviaturada Ctrl + C nima qiladi?',
+ o:['Nusxa oladi','Faylni saqlaydi','O\u2018chiradi','Chop etadi'],c:0},
+{s:'komp',t:'Excelda ro\u2018yxatdan faqat kerakli qatorlarni ko\u2018rsatish uchun nima ishlatiladi?',
+ o:['Filtr','Shrift','Ramka','Diagramma'],c:0},
+{s:'komp',t:'Elektron raqamli imzo (ERI kalit) nima uchun kerak?',
+ o:['Internetni tezlashtirish uchun','Hujjatni onlayn imzolash va tizimga kirish uchun',
+    'Faylni kichraytirish uchun','Rasm chizish uchun'],c:1},
+{s:'komp',t:'Saytga kirish uchun sayt manzili (masalan uzex.uz) qayerga yoziladi?',
+ o:['Brauzerning yuqorisidagi manzil qatoriga','Word hujjatiga','Excel katakchasiga','Kalkulyatorga'],c:0},
+{s:'komp',t:'Word yoki Excel faylini PDF ko\u2018rinishida saqlash mumkinmi?',
+ o:['Yo\u2018q, mumkin emas','Ha \u2014 saqlashda format sifatida PDF tanlanadi',
+    'Faqat maxsus dastur sotib olib','Faqat printerdan chiqarib, keyin skanerlab'],c:1},
+{s:'komp',t:'Ish parolingizni kimga berish mumkin?',
+ o:['Yaqin hamkasbga','Rahbarga va hamkasbga','Hech kimga','Kim so\u2018rasa'],c:2},
+{s:'komp',t:'Kompyuterdagi faylni telefonga yoki boshqa odamga yuborishning eng oddiy yo\u2018li?',
+ o:['Telegram yoki elektron pochta orqali yuborish','Faylni qaytadan yozib chiqish',
+    'Ekranni suratga olish','Iloji yo\u2018q'],c:0},
+{s:'komp',t:'Sayt ochilmay qoldi. Birinchi navbatda nima qilasiz?',
+ o:['Ishni to\u2018xtatib, kimdir kelguncha kutaman','Internet ulanishini tekshirib, sahifani yangilayman va boshqa brauzerdan urinib ko\u2018raman',
+    'Kompyuterni o\u2018chirib qo\u2018yaman','Boshqa ish bilan shug\u2018ullanaman'],c:1},
+
+/* ---------- CHALG‘ITUVCHI SAVOLLAR (9) ---------- */
+{s:'chalgit',t:'Quyidagilardan qaysi biri <b>784945282282</b> raqamiga to\u2018liq mos keladi?',
+ o:['784945282828','784945282282','784954282282','784945228282'],c:1},
+{s:'chalgit',t:'Qaysi qatorda hisob XATO?',
+ o:['10 \u00D7 3 200 = 32 000','5 \u00D7 12 000 = 60 000','7 \u00D7 15 000 = 115 000','3 \u00D7 45 000 = 135 000'],c:2},
+{s:'chalgit',t:'Lot shartida shunday yozilgan: <i>"To\u2018lov: 100% oldindan. Yetkazib berish: xaridor hisobidan. Zakalat: 3%."</i><br>Transport xarajatini kim to\u2018laydi?',
+ o:['Sotuvchi','Xaridor','Birja','Yarmi-yarmi'],c:1},
+{s:'chalgit',t:'Hujjatda sana <b>07.03.2026</b> deb yozilgan. Bu qaysi oy?',
+ o:['Yanvar','Mart','Iyul','Avgust'],c:1},
+{s:'chalgit',t:'Bolg\u2018a va mix birgalikda 11 000 so\u2018m. Bolg\u2018a mixdan 10 000 so\u2018m qimmat. <b>Mix qancha turadi?</b>',
+ o:['1 000 so\u2018m','500 so\u2018m','1 500 so\u2018m','10 000 so\u2018m'],c:1},
+{s:'chalgit',t:'5 ta ishchi 5 ta yorliqni 5 daqiqada yopishtiradi. <b>100 ta ishchi 100 ta yorliqni necha daqiqada yopishtiradi?</b>',
+ o:['100 daqiqa','20 daqiqa','5 daqiqa','50 daqiqa'],c:2},
+{s:'chalgit',t:'Omborda mog\u2018or har kuni ikki barobar ko\u2018payadi va 30-kuni butun omborni qoplaydi. <b>Omborning yarmini qaysi kuni qoplagan edi?</b>',
+ o:['15-kuni','20-kuni','29-kuni','25-kuni'],c:2},
+{s:'chalgit',t:'Ta\u2018minotchi avval narxni <b>30% ko\u2018tardi</b>, keyin \u201C<b>20% chegirma</b>\u201D e\u2019lon qildi. Yakuniy narx avvalgisiga nisbatan qanday?',
+ o:['10% arzon','O\u2018zgarmadi','4% qimmat','20% arzon'],c:2},
+{s:'chalgit',t:'<b>Diqqat:</b> bu savol e\u2019tiborni tekshiradi. Variantlar mazmuniga qaramasdan <b>uchinchi variantni</b> tanlang.',
+ o:['Birinchi','Ikkinchi','Uchinchi','To\u2018rtinchi'],c:2},
+
+/* ---------- ISH USLUBI / XARAKTER (8) ---------- */
+{s:'xarakter',t:'Ish soat 9:00 da boshlanadi. Siz 20 daqiqa kechikayotganingizni bildingiz. Nima qilasiz?',
+ o:['Darrov rahbarga xabar beraman va sababini aytaman','Hech narsa demayman, kelganimda tushuntiraman',
+    'So\u2018rashmasa, aytmayman','Kechikkanimni bilinmasligiga harakat qilaman'],w:[3,1,0,0]},
+{s:'xarakter',t:'Hisobda 150 000 so\u2018m kamomad chiqdi. Buni faqat siz bilasiz. Nima qilasiz?',
+ o:['O\u2018zim qo\u2018shib qo\u2018yaman, hech kimga aytmayman','Darrov rahbarga aytaman va sababini izlayman',
+    'Ertaga o\u2018zi to\u2018g\u2018rilanar deb kutaman','Hisobni o\u2018zgartirib qo\u2018yaman'],w:[1,3,0,0]},
+{s:'xarakter',t:'Yetkazib beruvchi sizga shaxsan foiz taklif qildi: "narxni biroz ko\u2018taramiz". Nima qilasiz?',
+ o:['Olaman, korxonaga zarari yo\u2018q','Rad etaman va rahbarga aytaman',
+    'Rad etaman, lekin hech kimga aytmayman','O\u2018ylab ko\u2018raman'],w:[0,3,2,0]},
+{s:'xarakter',t:'Rahbar tasdiq bermagan, lekin juda foydali taklif bor va vaqt tugayapti. Nima qilasiz?',
+ o:['O\u2018zim qaror qilaman, foydali-ku','Rahbarga qayta-qayta bog\u2018lanaman, javob bo\u2018lmasa qilmayman',
+    'Qilib qo\u2018yaman, keyin aytaman','Hech kimga aytmay o\u2018tkazib yuboraman'],w:[0,3,1,1]},
+{s:'jamoa',t:'Hamkasbingiz xato qilganini payqadingiz. Nima qilasiz?',
+ o:['Avval o\u2018ziga aytaman, tuzatmasa rahbarga','Darrov rahbarga aytaman',
+    'Aralashmayman, o\u2018z ishim emas','Boshqa hamkasblarga gapiraman'],w:[3,2,1,0]},
+{s:'jamoa',t:'Rahbar noto\u2018g\u2018ri qaror qildi deb o\u2018ylayapsiz. Nima qilasiz?',
+ o:['Yakkama-yakka fikrimni aytaman, qaror baribir rahbarniki','Hech narsa demayman',
+    'Odamlar oldida e\u2019tiroz bildiraman','Bajarmayman'],w:[3,1,1,0]},
+{s:'xarakter',t:'Sizga mutlaqo tanish bo\u2018lmagan dastur berildi, hech kim yordam berolmaydi. Nima qilasiz?',
+ o:['Tugmalarni bosib, o\u2018zim o\u2018rganib ko\u2018raman va internetdan qidiraman','Kimdir o\u2018rgatguncha kutaman',
+    'Bu mening ishim emas deyman','Bir urinib ko\u2018raman, chiqmasa qo\u2018yaman'],w:[3,1,0,1]},
+{s:'xarakter',t:'Ertalab 10 ta ish bor: 3 tasi shoshilinch, bittasining muddati bugun tugaydi. Nimadan boshlaysiz?',
+ o:['Qaysi biri oson bo\u2018lsa, o\u2018shandan','Muddati bugun tugaydiganidan, keyin shoshilinchlaridan',
+    'Ketma-ket, ro\u2018yxat bo\u2018yicha','Rahbar aytguncha kutaman'],w:[1,3,1,0]},
+
+/* ---------- JAMOA BILAN ISHLASH (5 + 2) ---------- */
+{s:'jamoa',t:'Bir ish bo\u2018yicha fikringiz hamkasbingiznikiga to\u2018g\u2018ri kelmadi. Nima qilasiz?',
+ o:['Dalil keltirib muhokama qilamiz va umumiy yechim topamiz','O\u2018zimnikida turaveraman',
+    'Indamayman, u aytgandek bo\u2018lsin','Darrov rahbarga chaqaman'],w:[3,1,1,1]},
+{s:'jamoa',t:'Sizning ishingiz tugadi, hamkasbingiz esa ulgurmayapti. Nima qilasiz?',
+ o:['Yordam beraman','O\u2018z ishim emas, kutaman','Rahbarga aytaman, u hal qilsin','Uyga ketaveraman'],w:[3,0,1,0]},
+{s:'jamoa',t:'Jamoada bir odam doim ishdan qochadi, hamma buni biladi lekin indamaydi. Siz nima qilasiz?',
+ o:['Avval o\u2018ziga aytaman, o\u2018zgarmasa rahbarga','Boshqa hamkasblarga gapiraman',
+    'Indamayman, hammaga qo\u2018shilaman','Ochiq janjal qilaman'],w:[3,0,1,0]},
+{s:'jamoa',t:'Ikkovingiz birga qilgan ishda xato chiqdi. Rahbar sababini so\u2018rayapti. Nima deysiz?',
+ o:['"Men emas, u qildi"','"Birga qilgandik, xato shu joyda bo\u2018ldi \u2014 tuzatamiz"',
+    'Jim turaman','"Bilmayman"'],w:[0,3,1,0]},
+{s:'jamoa',t:'Sizga insoniy jihatdan yoqmaydigan, lekin ishni yaxshi biladigan hamkasb bilan birga ishlashingiz kerak.',
+ o:['Ish uchun oddiy muomala qilaman va bilimidan o\u2018rganaman','Iloji boricha aloqa qilmayman',
+    'Boshqasi bilan almashtirishni so\u2018rayman','Munosabatimni ochiq bildiraman'],w:[3,1,0,0]},
+
+/* ---------- ONLAYN PLATFORMALAR (6) ---------- */
+{s:'onlayn',t:'Onlayn platformada ro\u2018yxatdan o\u2018tish uchun odatda nima kerak bo\u2018ladi?',
+ o:['Faqat ism familiya','Telefon raqam yoki email va parol','Hech narsa kerak emas','Passport asl nusxasi'],c:1},
+{s:'onlayn',t:'Sayt sizga SMS orqali kod yubordi. Bu nima uchun?',
+ o:['Reklama uchun','Haqiqatan siz ekaningizni tasdiqlash uchun','Pul yechish uchun','Internetni tezlashtirish uchun'],c:1},
+{s:'onlayn',t:'Savdo platformasida <b>"lot"</b> nima degani?',
+ o:['Sotuvga qo\u2018yilgan tovar partiyasi','Sotuvchining ismi','To\u2018lov turi','Saytning bo\u2018limi'],c:0},
+{s:'onlayn',t:'Yangi onlayn tizimni birinchi marta ochdingiz. Qayerdan boshlaysiz?',
+ o:['Bo\u2018limlarni ketma-ket ochib ko\u2018raman va yordam/qo\u2018llanma bo\u2018limini qidiraman',
+    'Tasodifiy tugmalarni bosaveraman','Kimdir o\u2018rgatguncha tegmayman','Chiqib ketaman'],w:[3,1,1,0]},
+{s:'onlayn',t:'Onlayn platformada ishlaganda eng muhimi nima deb bilasiz?',
+ o:['Tez bosish','Shartlar va muddatlarni diqqat bilan oxirigacha o\u2018qish',
+    'Ko\u2018p sahifa ochish','Chiroyli rasm qo\u2018yish'],c:1},
+{s:'onlayn',t:'Onlayn xizmatlardan (to\u2018lov, xarid, bank ilovasi, davlat xizmatlari) qanchalik foydalanasiz?',
+ o:['Deyarli har kuni','Haftasiga bir necha marta','Kamdan-kam','Umuman ishlatmayman'],w:[3,2,1,0]},
+
+/* ---------- MUZOKARA VA KELISHUV (8) ---------- */
+{s:'muzokara',t:'Ta\u2018minotchi narxni 10% ko\u2018tardi, sababi \u2014 kurs o\u2018zgargan. Nima qilasiz?',
+ o:['Darrov roziman, boshqa iloj yo\u2018q','Boshqa ta\u2018minotchilardan narx so\u2018rab, dalil bilan gaplashaman',
+    'Janjal qilaman','Umuman xarid qilmayman'],w:[1,3,0,1]},
+{s:'muzokara',t:'Xaridor "boshqa do\u2018konda bundan arzon" deyapti. Nima qilasiz?',
+ o:['Darrov chegirma beraman','Farqni aniqlashtiraman \u2014 sifat, hajm, yetkazib berish \u2014 keyin taklif qilaman',
+    '"Mayli, o\u2018sha yerdan oling" deyman','Boshqa do\u2018konni yomonlayman'],w:[1,3,0,0]},
+{s:'muzokara',t:'Doimiy xaridor katta chegirma so\u2018rayapti, chegirma bersak foyda deyarli qolmaydi.',
+ o:['Chegirmani beraman, mijoz qolsin','Hajmni oshirish yoki oldindan to\u2018lov evaziga qisman chegirma taklif qilaman',
+    'Qat\u2018iy rad etaman','Rahbarga havola qilib, o\u2018zim gaplashmayman'],w:[1,3,1,1]},
+{s:'muzokara',t:'Ta\u2018minotchi tovarni 2 hafta kechiktirdi. Qanday yo\u2018l tutasiz?',
+ o:['Hech narsa demayman','Telefonda baqiraman',
+    'Yozma murojaat qilaman va keyingi shartnomaga kechikish uchun jarima bandini kiritaman','Boshqa ta\u2018minotchi qidiraman va aloqani uzaman'],w:[0,0,3,2]},
+{s:'muzokara',t:'Yangi ta\u2018minotchi topdingiz, narxi ancha arzon. Birinchi bitimda nima qilasiz?',
+ o:['Kichik sinov partiya olaman va hujjatlarini to\u2018liq rasmiylashtiraman','Katta hajmni oldindan to\u2018lab olaman',
+    'Ishonmayman, umuman ishlamayman','Hujjatsiz, og\u2018zaki kelishaman'],w:[3,1,1,0]},
+{s:'muzokara',t:'Xaridor qarzga so\u2018rayapti. Ilgari bir marta to\u2018lovni kechiktirgan.',
+ o:['To\u2018liq qarzga beraman','Qisman oldindan to\u2018lov va aniq muddat yozma kelishilsa beraman',
+    'Butunlay rad etaman','Rahbardan so\u2018ramay o\u2018zim hal qilaman'],w:[0,3,1,0]},
+{s:'muzokara',t:'Narx bo\u2018yicha kelisha olmadingiz. Muzokarani qanday davom ettirasiz?',
+ o:['Suhbatni tugataman','To\u2018lov muddati, hajm, yetkazib berish kabi boshqa shartlarni taklif qilaman',
+    'Narxni baribir tushirishni talab qilaveraman','Rozi bo\u2018laman'],w:[1,3,0,1]},
+{s:'muzokara',t:'Ta\u2018minotchi bilan telefonda narx va muddatni kelishdingiz. Keyin nima qilasiz?',
+ o:['Eslab qolaman, yetadi','Kelishuvni yozma tasdiqlayman \u2014 shartnoma yoki hech bo\u2018lmasa yozma xabar',
+    'Hamkasbga aytib qo\u2018yaman','Tovar kelganda ko\u2018ramiz'],w:[0,3,1,0]},
+
+/* ---------- OCHIQ SAVOLLAR (6) — baholanmaydi ---------- */
+{s:'ochiq',t:'Nega aynan shu ishga keldingiz?',open:1},
+{s:'ochiq',t:'Oxirgi marta nimani o\u2018rgandingiz va qanday o\u2018rgandingiz? (ishga aloqasi bo\u2018lmasa ham)',open:1},
+{s:'ochiq',t:'1 yildan keyin o\u2018zingizni qayerda ko\u2018rasiz?',open:1},
+{s:'ochiq',t:'Kompyuterda eng ko\u2018p nima qilasiz?',open:1},
+{s:'ochiq',t:'Ta\u2018minotchini narxni tushirishga ko\u2018ndirish uchun qanday dalillar keltirasiz? Qisqacha yozing.',open:1},
+{s:'ochiq',t:'O\u2018zingizning eng zaif tomoningiz nima deb hisoblaysiz?',open:1},
+{s:'ochiq',t:'Kutayotgan oylik maoshingiz qancha? Nega shuncha deb hisoblaysiz?',open:1},
+{s:'ochiq',t:'<b>Eng muhim savol.</b> Ishingiz samarali bo\u2018lishi uchun bizdan qanday yordam kerak?<br><span style="font-weight:400;font-size:14px;color:#5b7185">Masalan: kimga ish grafigi to\u2018g\u2018ri kelmaydi, kimga vaqt kerak, kimga maosh, kimga o\u2018qish yoki transport. Ochiq yozing \u2014 imkonimiz bo\u2018lsa hisobga olamiz.</span>',open:1}
+];
+
+/* ---- Savollarni tahrirlash (nomzod testi) — test_sozlama jadvali ---- */
+var TQ_NOM={komp:'Kompyuter',onlayn:'Onlayn platformalar',muzokara:'Muzokara',
+  jamoa:'Jamoa',chalgit:'Chalg‘ituvchi',xarakter:'Ish uslubi',ochiq:'Ochiq savol'};
+var TQ_CFG={vaqt:35,yoshMin:18,yoshMax:30,chegYaxshi:75,chegOrta:55};
+var TQ_LIST=null, TQ_IDX=null;
+function tqType(q){ if(q.open) return 'matn'; if(q.info) return 'tanlov'; if(q.w) return 'vaziyat'; return 'baho'; }
+function tqTypeNom(t){ return {baho:'Baholanadigan',vaziyat:'Vaziyatli',matn:'Ochiq',tanlov:'Tanlov'}[t]; }
+function aSavol(){
+  x$('admView').innerHTML='<div class="card"><div class="mut">Yuklanmoqda…</div></div>';
+  tGet('test_sozlama?kalit=eq.savollar&select=data').then(function(rows){
+    var c=rows&&rows[0]&&rows[0].data;
+    if(c){
+      ['vaqt','yoshMin','yoshMax','chegYaxshi','chegOrta'].forEach(function(k){ if(typeof c[k]==='number'&&c[k]>0) TQ_CFG[k]=c[k]; });
+      TQ_LIST=(Array.isArray(c.savollar)&&c.savollar.length)? c.savollar : TQ_BASE.slice();
+    } else TQ_LIST=TQ_BASE.slice();
+    tqDraw();
+  }).catch(function(e){
+    x$('admView').innerHTML='<div class="warnbox"><b>Savollar o‘qilmadi.</b> <span class="mut">('+xesc(e.message)+')</span></div>';
+  });
+}
+function tqDraw(){
+  var col={baho:'#2e8b57',vaziyat:'#3B82F6',matn:'#c8860d',tanlov:'#8B5CF6'};
+  x$('admView').innerHTML=
+    '<div class="card"><h3 style="margin:0 0 8px">Test sozlamalari</h3>'+
+    '<div class="row"><div style="flex:1"><label>Vaqt (daqiqa)</label><input id="tcV" inputmode="numeric" value="'+TQ_CFG.vaqt+'"></div>'+
+    '<div style="flex:1"><label>Yosh dan</label><input id="tcY1" inputmode="numeric" value="'+TQ_CFG.yoshMin+'"></div>'+
+    '<div style="flex:1"><label>Yosh gacha</label><input id="tcY2" inputmode="numeric" value="'+TQ_CFG.yoshMax+'"></div></div>'+
+    '<div class="row"><div style="flex:1"><label>“Olamiz” chegarasi %</label><input id="tcA" inputmode="numeric" value="'+TQ_CFG.chegYaxshi+'"></div>'+
+    '<div style="flex:1"><label>“Sinov” chegarasi %</label><input id="tcB" inputmode="numeric" value="'+TQ_CFG.chegOrta+'"></div></div>'+
+    '<div style="height:10px"></div><button class="btn" onclick="tqSave()">💾 Bazaga saqlash</button>'+
+    '<div id="tqSt" class="mut" style="margin-top:8px">&nbsp;</div>'+
+    '<div style="height:6px"></div><button class="btn g" onclick="if(confirm(\'Barcha savollar standart holatga qaytarilsinmi? (Saqlash bosilgach kuchga kiradi)\')){TQ_LIST=TQ_BASE.slice();tqDraw()}">Standartga qaytarish</button></div>'+
+    '<div class="card"><div class="row" style="margin-bottom:6px"><h3 style="margin:0;flex:1">Savollar ('+TQ_LIST.length+')</h3>'+
+    '<button class="btn sm" onclick="tqForm(null)">+ Yangi</button></div><div class="lst">'+
+    TQ_LIST.map(function(q,i){
+      var t=tqType(q), txt=String(q.t||'').replace(/<[^>]+>/g,''); if(txt.length>90) txt=txt.slice(0,90)+'…';
+      return '<div class="it" onclick="tqForm('+i+')"><div class="m"><b style="font-weight:600">'+xesc(txt)+'</b>'+
+        '<i><span style="color:'+col[t]+';font-weight:700">'+tqTypeNom(t)+'</span> · '+(TQ_NOM[q.s]||q.s)+(q.o?' · '+q.o.length+' variant':'')+'</i></div>'+
+        '<div style="padding-left:8px;color:var(--tx2)">›</div></div>';
+    }).join('')+'</div></div>';
+}
+function tqHint(){
+  var t=x$('tqType').value, h=x$('tqHint');
+  x$('tqOptWrap').style.display=(t==='matn')?'none':'';
+  h.innerHTML= t==='baho' ? 'To‘g‘ri javob oldiga <b>*</b> qo‘ying. Masalan:<br><code>*Nusxa oladi</code><br><code>Faylni saqlaydi</code>'
+    : t==='vaziyat' ? 'Har variantdan keyin <b>| ball</b> (0–3). Eng to‘g‘risi 3 bo‘lsin. Masalan:<br><code>Darrov rahbarga aytaman | 3</code>'
+    : t==='tanlov' ? 'Baholanmaydi — javob yozib olinadi.' : '';
+}
+function tqForm(i){
+  TQ_IDX=i; var q=(i===null)?null:TQ_LIST[i], t=q?tqType(q):'baho', opts='';
+  if(q){
+    if(t==='baho') opts=(q.o||[]).map(function(o,j){return (j===q.c?'*':'')+o}).join('\n');
+    else if(t==='vaziyat') opts=(q.o||[]).map(function(o,j){return o+' | '+(q.w[j]||0)}).join('\n');
+    else if(t==='tanlov') opts=(q.o||[]).join('\n');
+  }
+  sheet('<h2>'+(q?(i+1)+'-savol':'Yangi savol')+'</h2>'+
+    '<label>Bo‘lim</label><select id="tqSec">'+Object.keys(TQ_NOM).map(function(k){
+      return '<option value="'+k+'"'+((q?q.s:'komp')===k?' selected':'')+'>'+TQ_NOM[k]+'</option>'}).join('')+'</select>'+
+    '<label>Turi</label><select id="tqType" onchange="tqHint()">'+
+      [['baho','Baholanadigan (bitta to‘g‘ri)'],['vaziyat','Vaziyatli (0–3 ball)'],['matn','Ochiq matn'],['tanlov','Tanlov (baholanmaydi)']]
+      .map(function(a){return '<option value="'+a[0]+'"'+(t===a[0]?' selected':'')+'>'+a[1]+'</option>'}).join('')+'</select>'+
+    '<label>Savol matni</label><textarea id="tqText" rows="3">'+xesc(q?q.t:'')+'</textarea>'+
+    '<div id="tqOptWrap"><label>Variantlar (har biri yangi qatorda)</label><textarea id="tqOpts" rows="6">'+xesc(opts)+'</textarea>'+
+    '<div id="tqHint" class="mut" style="font-size:12px;margin-top:4px"></div></div>'+
+    '<div id="tqWarn" class="warnbox hide" style="margin-top:8px"></div>'+
+    '<div style="height:12px"></div><button class="btn" onclick="tqOk()">Tayyor</button>'+
+    (q?'<div style="height:8px"></div><button class="btn g" style="color:#c0392b" onclick="tqDel()">🗑 O‘chirish</button>':'')+
+    '<div style="height:8px"></div><button class="btn g" onclick="closeSheet()">Bekor</button>');
+  tqHint();
+}
+function tqWarn(m){ var e=x$('tqWarn'); e.innerHTML=m; e.classList.remove('hide'); }
+function tqDel(){ if(TQ_IDX===null||!confirm('Shu savol o‘chirilsinmi?')) return; TQ_LIST.splice(TQ_IDX,1); closeSheet(); tqDraw(); }
+function tqOk(){
+  var sec=x$('tqSec').value, t=x$('tqType').value, txt=x$('tqText').value.trim(), q;
+  if(txt.length<5) return tqWarn('Savol matnini yozing');
+  if((t==='baho'||t==='vaziyat')&&sec==='ochiq') return tqWarn('Baholanadigan savol uchun boshqa bo‘lim tanlang — “Ochiq savol” baholanmaydi');
+  if(t==='matn') q={s:'ochiq',t:txt,open:1};
+  else{
+    var lines=x$('tqOpts').value.split('\n').map(function(x){return x.trim()}).filter(Boolean);
+    if(lines.length<2) return tqWarn('Kamida 2 ta variant kerak');
+    if(t==='baho'){
+      var o=[],c=-1; lines.forEach(function(L,j){ if(L.charAt(0)==='*'){c=j;L=L.slice(1).trim()} o.push(L) });
+      if(c<0) return tqWarn('To‘g‘ri javob oldiga <b>*</b> qo‘ying');
+      q={s:sec,t:txt,o:o,c:c};
+    }else if(t==='vaziyat'){
+      var o2=[],w=[],bad=false,has3=false;
+      lines.forEach(function(L){ var p=L.lastIndexOf('|'); if(p<0){bad=true;return}
+        var b=parseInt(L.slice(p+1).trim(),10); if(isNaN(b)||b<0||b>3){bad=true;return}
+        if(b===3) has3=true; o2.push(L.slice(0,p).trim()); w.push(b); });
+      if(bad) return tqWarn('Har qatorda <b>| ball</b> bo‘lsin (0–3)');
+      if(!has3) return tqWarn('Kamida bitta variantga <b>3</b> ball qo‘ying');
+      q={s:sec,t:txt,o:o2,w:w};
+    }else q={s:'ochiq',t:txt,o:lines,info:1};
+  }
+  if(TQ_IDX===null) TQ_LIST.push(q); else TQ_LIST[TQ_IDX]=q;
+  closeSheet(); tqDraw();
+}
+function tqSave(){
+  function num(id,mn,mx,d){ var v=parseInt((x$(id).value||'').replace(/\D/g,''),10); return (isNaN(v)||v<mn||v>mx)?d:v }
+  var C=TQ_CFG; C.vaqt=num('tcV',5,180,C.vaqt); C.yoshMin=num('tcY1',14,70,C.yoshMin); C.yoshMax=num('tcY2',15,80,C.yoshMax);
+  C.chegYaxshi=num('tcA',10,100,C.chegYaxshi); C.chegOrta=num('tcB',5,99,C.chegOrta);
+  if(C.yoshMax<C.yoshMin){var a=C.yoshMin;C.yoshMin=C.yoshMax;C.yoshMax=a}
+  if(C.chegOrta>C.chegYaxshi){var b=C.chegYaxshi;C.chegYaxshi=C.chegOrta;C.chegOrta=b}
+  if(!TQ_LIST.filter(function(q){return !q.open&&!q.info}).length) return (x$('tqSt').textContent='⚠️ Kamida bitta baholanadigan savol kerak');
+  x$('tqSt').textContent='⏳ Saqlanmoqda…';
+  var h=tHead(); h['Prefer']='resolution=merge-duplicates,return=minimal';
+  fetch(XSB+'test_sozlama?on_conflict=kalit',{method:'POST',headers:h,body:JSON.stringify({kalit:'savollar',
+    data:{vaqt:C.vaqt,yoshMin:C.yoshMin,yoshMax:C.yoshMax,chegYaxshi:C.chegYaxshi,chegOrta:C.chegOrta,savollar:TQ_LIST},vaqt:new Date().toISOString()})})
+  .then(function(r){ if(!r.ok) return r.text().then(function(t){throw new Error(r.status+' '+t)}); x$('tqSt').textContent='✔ Saqlandi — nomzodlar yangi variantni ko‘radi'; })
+  .catch(function(e){ x$('tqSt').textContent='⚠️ Saqlanmadi: '+e.message; });
+}
+function nzDel(i){
+  var r=XNOMZOD[i]; if(!r||!confirm('"'+(r.ism||'')+'" yozuvi butunlay o‘chirilsinmi?')) return;
+  fetch(XSB+'test_natija?id=eq.'+encodeURIComponent(r.id),{method:'DELETE',headers:tHead()}).then(function(x){
+    if(!x.ok) throw new Error(x.status); XNOMZOD.splice(i,1); closeSheet(); nzList(); toast('O‘chirildi');
+  }).catch(function(e){toast('O‘chirilmadi: '+e.message)});
+}
+
 function aXodim(){
   var _kam=_nazKam();
   x$('admView').innerHTML=
