@@ -7320,6 +7320,29 @@ function bossEnter(){
   x$('login').classList.add('hide'); x$('app').classList.remove('hide');
   x$('who').innerHTML='<span style="font-size:18px;vertical-align:middle">🧑‍💼</span> Rahbar <span style="opacity:.6">▾</span><br>Boshqaruv';
   buildNav(); show('adm');
+  try{ var sm=localStorage.getItem('xk_boss_me');
+    if(sm&&!XBOSS_OFF&&XLIST.some(function(x){return x.id===sm})) bossSwitchMe(sm,true); }catch(e){}
+}
+var XBOSS_OFF=false;
+function _bossDevice(){ try{ return localStorage.getItem('moliya_auth')==='1'||localStorage.getItem('moliya_pin_ok')==='1'||!!localStorage.getItem('xk_boss_me')||!!XADMKEY; }catch(e){ return !!XADMKEY; } }
+/* Rahbar (Moliya paroli bilan kirgan) o'zini xodim sifatida o'tkazadi — parol so'ralmaydi */
+function bossAsMe(){
+  var opts=XLIST.filter(function(x){return x.faol!==false}).map(function(x){
+    return '<option value="'+x.id+'">'+xesc(x.ism)+' — '+xesc(x.bolim||'')+'</option>'}).join('');
+  sheet('<h2>O‘zimni o‘tkazish</h2><div class="mut" style="margin-bottom:10px">Kimligingizni tanlang — davomat, vazifa va natijangiz ochiladi. Boshqaruv ham saqlanadi.</div>'+
+    '<label>Xodim</label><select id="bmSel"><option value="">— tanlang —</option>'+opts+'</select>'+
+    '<div style="height:12px"></div><button class="btn" onclick="var v=x$(\'bmSel\').value;if(!v)return toast(\'Xodimni tanlang\');bossSwitchMe(v)">Davom etish</button>'+
+    '<div style="height:8px"></div><button class="btn g" onclick="closeSheet()">Bekor</button>');
+}
+function bossSwitchMe(id,quiet){
+  var x=XLIST.filter(function(a){return a.id===id})[0]; if(!x) return;
+  try{localStorage.setItem('xk_boss_me',id);}catch(e){}
+  XME=x; XBOSS=false; closeSheet(); enter();
+  if(!quiet) toast(x.ism+' sifatida kirdingiz');
+}
+function bossOnly(){
+  try{localStorage.removeItem('xk_boss_me');}catch(e){}
+  XBOSS_OFF=true; XME=null; bossEnter(); closeSheet(); XBOSS_OFF=false;
 }
 function enter(){
   x$('login').classList.add('hide'); x$('app').classList.remove('hide');
@@ -7332,16 +7355,19 @@ function chiqish(){ if(!confirm('Hisobdan chiqasizmi? Keyin qayta parol so‘ral
 
 function buildNav(){
   var it;
-  if(XBOSS) it=[['adm','⚙️','Boshqaruv']];
+  if(XBOSS) it=[['adm','⚙️','Boshqaruv'],['me','👤','O‘zimni o‘tkazish']];
   else{
     it=[['dav','🕘','Davomat'],['vaz','✅','Vazifa']];
     if(_menRahbar()) it.push(['tas','🛡️','Tasdiqlash']);
     it.push(['nat','📊','Natija'],['adm','⚙️','Boshqaruv']);
+    if(_bossDevice()) it.push(['moliya','📈','Moliya']);
   }
   x$('nav').innerHTML=it.map(function(a){
     return '<button id="nb-'+a[0]+'" onclick="show(\''+a[0]+'\')"><em>'+a[1]+'</em>'+a[2]+'</button>'}).join('');
 }
 function show(v){
+  if(v==='moliya') return xkClose();
+  if(v==='me'&&XBOSS) return bossAsMe();
   if(XBOSS) v='adm';
   ['dav','vaz','tas','nat','adm'].forEach(function(k){
     x$('v-'+k).classList.toggle('on',k===v);
@@ -7547,11 +7573,14 @@ function sbRpc(fn,args,admin){
 }
 function meMenu(){
   if(XBOSS) return sheet('<h2>Rahbar</h2><div class="mut" style="margin-bottom:14px">Boshqaruv rejimi</div>'+
+    '<button class="btn" onclick="bossAsMe()">👤 O‘zimni xodim sifatida o‘tkazish</button><div style="height:8px"></div>'+
     '<button class="btn g" onclick="xkClose()">← Moliyaviy Bazaga qaytish</button><div style="height:8px"></div>'+
     (XADMKEY?'<button class="btn g" onclick="admOut()">🔒 Boshqaruv kodini unutish</button><div style="height:8px"></div>':'')+
     '<button class="btn g" onclick="closeSheet()">Yopish</button>');
   sheet('<h2>'+xesc(XME.ism)+'</h2><div class="mut" style="margin-bottom:14px">'+xesc(XME.bolim||'')+'</div>'+
     '<button class="btn g" onclick="pinForm()">🔑 Parolni o‘zgartirish</button><div style="height:8px"></div>'+
+    (_bossDevice()?'<button class="btn" onclick="closeSheet();xkClose()">📈 Moliyaviy Bazaga qaytish</button><div style="height:8px"></div>':'')+
+    (localStorage.getItem('xk_boss_me')?'<button class="btn g" onclick="bossOnly()">↩ Faqat Boshqaruv (rahbar) rejimi</button><div style="height:8px"></div>':'')+
     (XADMKEY?'<button class="btn g" onclick="admOut()">🔒 Boshqaruvdan chiqish</button><div style="height:8px"></div>':'')+
     '<button class="btn bad" onclick="chiqish()">🚪 Hisobdan chiqish</button><div style="height:8px"></div>'+
     '<button class="btn g" onclick="closeSheet()">Yopish</button>');
