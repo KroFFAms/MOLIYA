@@ -113,9 +113,9 @@ tr.sof td.q-val{background:#375623;color:#fff;font-size:14px}
 #xkRoot{position:fixed;inset:0;z-index:9998;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none;padding-bottom:78px}
 #xkRoot.on{display:block}
 #xkRoot{
-  --bg:#12121c; --card:#1e1e2e; --card2:#26263a; --line:#33334a;
-  --tx:#eceaf5; --tx2:#9a97b5;
-  --acc:#7c5cff; --acc2:#a58bff;
+  --bg:#eef2f8; --card:#ffffff; --card2:#eaeff7; --line:#d5dde9;
+  --tx:#1b2638; --tx2:#5a6a80;
+  --acc:#5b3fe0; --acc2:#5b3fe0;
   --ok:#2fbf71; --warn:#f0a02c; --bad:#e2555b;
   --r:14px;
 }
@@ -200,6 +200,28 @@ tr.sof td.q-val{background:#375623;color:#fff;font-size:14px}
   padding:10px 12px;border-radius:11px;font-size:12.5px;margin-bottom:12px}
 @media(prefers-reduced-motion:reduce){#xkRoot *{transition:none!important;animation:none!important}}
 #xkRoot :focus-visible{outline:2px solid var(--acc2);outline-offset:2px}
+/* ---- ochiq (yorug') mavzu ---- */
+#xkRoot .hdr{background:rgba(255,255,255,.94)!important;box-shadow:0 1px 4px rgba(20,40,80,.08)}
+#xkRoot .hdr .lg,#xkRoot .hdr h1{color:var(--tx)}
+#xkRoot .hdr .lg span{color:var(--acc)}
+#xkRoot .nav{background:rgba(255,255,255,.97)!important;box-shadow:0 -2px 8px rgba(20,40,80,.08)}
+#xkRoot .card{box-shadow:0 1px 3px rgba(20,40,80,.06)}
+#xkRoot .stat{border:1px solid var(--line)}
+#xkRoot .p-ok{background:rgba(47,191,113,.16);color:#17803f}
+#xkRoot .p-w{background:rgba(240,160,44,.2);color:#9a5d00}
+#xkRoot .p-b{background:rgba(226,85,91,.14);color:#b3262e}
+#xkRoot .p-n{background:rgba(91,63,224,.12);color:var(--acc)}
+#xkRoot .warnbox{background:#fff4e0;border-color:#f0c070;color:#8a5200}
+#xkRoot .warnbox[style*="226,85,91"]{background:#fdeaea!important;border-color:#eba0a4!important;color:#a52029!important}
+#xkRoot [style*="#f08b8f"]{color:#c0392b!important}
+#xkRoot [style*="#f0c419"],#xkRoot [style*="#f0a02c"]{color:#b06a00!important}
+#xkRoot tr:hover td{background:rgba(20,40,80,.04)!important}
+#xkRoot .bar{background:#dfe6f1}
+#xkRoot .tabs button{background:#fff;color:var(--tx2);border-color:var(--line)}
+#xkRoot .tabs button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+#xkRoot input,#xkRoot select,#xkRoot textarea{background:#fff;color:var(--tx);border-color:var(--line)}
+#xkRoot .mask{background:rgba(20,30,50,.45)}
+
 /* ---- Xodim/Boshqaruv: kattaroq shrift, jadval ranglari, kengroq (Moliyadek) tartib ---- */
 #xkRoot{font-size:16.5px}
 #xkRoot table,#xkRoot thead,#xkRoot tbody,#xkRoot tfoot,#xkRoot tr,#xkRoot th,#xkRoot td{background:transparent!important;color:inherit}
