@@ -7375,11 +7375,11 @@ function chiqish(){ if(!confirm('Hisobdan chiqasizmi? Keyin qayta parol so‘ral
 
 function buildNav(){
   var it;
-  if(XBOSS) it=[['adm','⚙️','Boshqaruv'],['me','👤','O‘zimni o‘tkazish'],['moliya','📈','Moliya']];
+  if(XBOSS) it=[['adm','⚙️','Boshqaruv'],['soz','🔧','Sozlama'],['me','👤','O‘zimni o‘tkazish'],['moliya','📈','Moliya']];
   else{
     it=[['dav','🕘','Davomat'],['vaz','✅','Vazifa']];
     if(_menRahbar()) it.push(['tas','🛡️','Tasdiqlash']);
-    it.push(['nat','📊','Natija'],['adm','⚙️','Boshqaruv']);
+    it.push(['nat','📊','Natija'],['adm','⚙️','Boshqaruv'],['soz','🔧','Sozlama']);
     if(_bossDevice()) it.push(['moliya','📈','Moliya']);
   }
   x$('nav').innerHTML=it.map(function(a){
@@ -7387,12 +7387,14 @@ function buildNav(){
 }
 function show(v){
   if(v==='moliya') return xkClose();
+  if(v==='soz'){ XADMT='soz'; v='adm'; }
   if(v==='me'&&XBOSS) return bossAsMe();
   if(XBOSS) v='adm';
   ['dav','vaz','tas','nat','adm'].forEach(function(k){
     x$('v-'+k).classList.toggle('on',k===v);
-    var b=x$('nb-'+k); if(b) b.classList.toggle('on',k===v);
+    var b=x$('nb-'+k); if(b) b.classList.toggle('on',k===v&&!(k==='adm'&&XADMT==='soz'));
   });
+  var _sb=x$('nb-soz'); if(_sb) _sb.classList.toggle('on',v==='adm'&&XADMT==='soz');
   var _f={dav:renderDav,vaz:renderVaz,tas:renderTas,nat:renderNat}[v];
   if(_f){
     var el=x$('v-'+v);
