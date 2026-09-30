@@ -90,10 +90,15 @@ tr.sof td.q-val{background:#375623;color:#fff;font-size:14px}
   #menuToggle{display:flex!important;align-items:center;}
   .hdr{padding:10px 14px}
   .hdr h1{font-size:15px}
-  .tabs{display:none;position:fixed;bottom:0;left:0;right:0;width:100%;flex-direction:row;overflow-x:auto;z-index:100;background:#fff;border-top:1px solid #ddd;padding:4px 0;min-height:unset;box-shadow:0 -2px 8px rgba(0,0,0,.1)}
+  .tabs{display:none;position:fixed;top:0;left:0;bottom:0;width:78%;max-width:320px;flex-direction:column;overflow-y:auto;z-index:1000;background:#fff;border-right:1px solid #ddd;padding:14px 0;min-height:unset;box-shadow:4px 0 18px rgba(0,0,0,.25)}
   .tabs.open{display:flex}
-  .tab{padding:8px 14px;font-size:12px;border-left:none;border-top:3px solid transparent;white-space:nowrap;border-bottom:none}
-  .tab.active{border-top-color:#1F4E79;background:#EEF4FB}
+  #menuMask{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:999}
+  #menuMask.on{display:block}
+  .tab{padding:14px 18px;font-size:16px;border-left:4px solid transparent;border-top:none;white-space:nowrap;border-bottom:1px solid #eef1f6;text-align:left}
+  .tab.active{border-left-color:#1F4E79;background:#EEF4FB}
+  html,body{overflow-x:hidden}
+  .hdr{flex-wrap:wrap;row-gap:8px}
+  .hdr>div:last-child{flex-wrap:wrap;width:100%;row-gap:6px}
   .wrap{padding:12px;max-width:100%}
   #mainWrap>div[style*="display:flex"]{flex-direction:column}
   .cards{grid-template-columns:repeat(2,1fr)}
@@ -1003,6 +1008,7 @@ function exportFullHtml(silent, customName, safe){
     <button onclick="var p=prompt('Butun bazani o\'chirish uchun OCHIR deb yozing:');if(p&amp;&amp;p.trim().toUpperCase()==='OCHIR'){localStorage.removeItem('moliya_v25');DB={};render();renderIshHaqi();alert('Baza tozalandi.');}" style="background:#C00000;color:#fff;border:none;border-radius:6px;padding:5px 11px;font-size:11px;cursor:pointer" title="Butun bazani o\'chirish (ehtiyot bo\'ling!)">🗑</button>
   </div>
 </div>
+<div id="menuMask" onclick="toggleMenu(false)"></div>
 <div id="mainLayout" style="display:flex;align-items:flex-start;min-height:calc(100vh - 120px)"><div class="tabs" id="sideMenu">
   <button id="tab_t1" class="tab active" onclick="showTab('t1',this)">📊 Umumiy hisobot</button>
   <button id="tab_kir" class="tab" onclick="showTab('kir',this);renderEntry()">✍️ Kiritish</button>
@@ -1557,7 +1563,15 @@ function downloadExcel(y, i){
 }
 
 
+function toggleMenu(force){
+  var m=document.getElementById('sideMenu'), k=document.getElementById('menuMask');
+  if(!m) return;
+  var open=(typeof force==='boolean')?force:!m.classList.contains('open');
+  m.classList.toggle('open',open);
+  if(k) k.classList.toggle('on',open);
+}
 function showTab(id,btn){
+  try{ if(window.innerWidth<=768) toggleMenu(false); }catch(e){}
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(id).classList.add('active');
