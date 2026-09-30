@@ -253,6 +253,12 @@ tr.sof td.q-val{background:#375623;color:#fff;font-size:14px}
 #xkRoot .tabs button{font-size:15.5px;padding:10px 16px}
 #xkRoot .warnbox{font-size:15px}
 #xkRoot .nav button{font-size:12px}
+
+#xkRoot .nav{background:#ffffff!important;backdrop-filter:none!important;border-top:2px solid #d5dde9!important;justify-content:center;gap:6px;z-index:60!important;box-shadow:0 -4px 14px rgba(20,40,80,.12)!important}
+#xkRoot .nav button{flex:0 1 170px;min-width:64px;color:#1b2638!important;font-weight:700;font-size:12.5px;opacity:1!important}
+#xkRoot .nav button em{font-size:24px}
+#xkRoot .nav button.on{color:#5b3fe0!important;background:#eee9ff;border-radius:12px}
+#xkRoot{padding-bottom:90px}
 @media(min-width:900px){
   #xkRoot{font-size:17.5px}
   #xkRoot #v-adm.wrap{max-width:1560px;padding:22px 32px}
@@ -7369,7 +7375,7 @@ function chiqish(){ if(!confirm('Hisobdan chiqasizmi? Keyin qayta parol so‘ral
 
 function buildNav(){
   var it;
-  if(XBOSS) it=[['adm','⚙️','Boshqaruv'],['me','👤','O‘zimni o‘tkazish']];
+  if(XBOSS) it=[['adm','⚙️','Boshqaruv'],['me','👤','O‘zimni o‘tkazish'],['moliya','📈','Moliya']];
   else{
     it=[['dav','🕘','Davomat'],['vaz','✅','Vazifa']];
     if(_menRahbar()) it.push(['tas','🛡️','Tasdiqlash']);
@@ -7387,11 +7393,20 @@ function show(v){
     x$('v-'+k).classList.toggle('on',k===v);
     var b=x$('nb-'+k); if(b) b.classList.toggle('on',k===v);
   });
-  if(v==='dav') renderDav();
-  if(v==='vaz') renderVaz();
-  if(v==='tas') renderTas();
-  if(v==='nat') renderNat();
-  if(v==='adm'&&XADMKEY){ x$('admGate').classList.add('hide'); x$('admBody').classList.remove('hide'); admTab(XADMT); }
+  var _f={dav:renderDav,vaz:renderVaz,tas:renderTas,nat:renderNat}[v];
+  if(_f){
+    var el=x$('v-'+v);
+    if(el){ var old=el.querySelector('.errbox'); if(old) old.remove(); }
+    try{ _f(); }catch(e){
+      console.error(e);
+      if(el) el.insertAdjacentHTML('afterbegin','<div class="warnbox errbox"><b>Bo‘lim to‘liq ochilmadi:</b> '+xesc(e.message||e)+
+        '<br><span class="mut">Ushbu xabarning skrinshotini yuboring.</span></div>');
+    }
+  }
+  if(v==='adm'&&XADMKEY){
+    x$('admGate').classList.add('hide'); x$('admBody').classList.remove('hide');
+    try{ admTab(XADMT); }catch(e){ console.error(e); x$('admView').innerHTML='<div class="warnbox"><b>Bo‘lim ochilmadi:</b> '+xesc(e.message||e)+'</div>'; }
+  }
 }
 
 /* ================= MA'LUMOT YUKLASH ================= */
@@ -7976,7 +7991,7 @@ function baho(x,dav){
   var olganBall = intizom + (vzBor?vazifa:0) + (ntBor?natija:0);
   var jami = maxBall? Math.round(olganBall/maxBall*100) : 0;
   var K=1;
-  for(var i=0;i<XSOZ.band.length;i++){ if(jami>=XSOZ.band[i].b){K=XSOZ.band[i].k;break} }
+  var _bd=XSOZ.band||XDEF_SOZ.band||[]; for(var i=0;i<_bd.length;i++){ if(jami>=_bd[i].b){K=_bd[i].k;break} }
 
   var fiks=+x.fiks||0, kunlik=fiks/(XSOZ.ish_kuni||26), soatlik=kunlik/8;
   var ushla=Math.round(st.kelmagan*kunlik + st.kechJami*(soatlik/60));
