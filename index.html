@@ -7297,6 +7297,9 @@ function renderDav(){
       '<div class="mut">'+xesc(t.kelgan)+' → '+xesc(t.ketgan)+'</div>'+
       (_kf!=null?'<div style="margin-top:8px;font-size:17px;font-weight:700;color:'+(_kf>=0?'#6ee7a5':'#f08b8f')+'">'+
         (_kf>=0?'+':'')+xnum(_kf)+' so‘m</div><div class="mut">korxonaga bugungi hissangiz</div>':'')+
+      (t.kun_mijoz!=null?'<div style="margin-top:6px;font-size:15px;font-weight:600">'+xnum(t.kun_mijoz)+' mijoz</div>'+
+        (kunUlush(XME,t)!=null?'<div class="mut">bo\u2018lim savdosining '+kunUlush(XME,t)+'% i</div>':''):'')+
+      (t.kun_js?Object.keys(t.kun_js).map(function(q){return '<div class="mut" style="margin-top:4px">'+xesc(q)+': <b style="color:var(--tx)">'+xnum(t.kun_js[q])+'</b></div>';}).join(''):'')+
       (t.kun_izoh?'<div class="mut" style="margin-top:8px;text-align:left;border-top:1px solid var(--line);padding-top:8px">'+
         xesc(t.kun_izoh)+'</div>':'')+'</div>';
     x$('dvHolat').innerHTML='<span class="pill p-n">Kun yakunlandi</span>';
@@ -7372,6 +7375,18 @@ function kunSoz(x){
   if(!k||x.baho_turi==='qollab') return null;
   return k;
 }
+/* Kun yakunida bo'limga qarab so'raladigan savollar: mijoz soni (sotuvchilar) + qo'shimcha raqamli savollar */
+function kunCfg(x){
+  var b=((x&&x.bolim)||'').trim(), c=(XSOZ.kunlik||{})[b]||{};
+  if(c.mijoz!=null||c.savollar) return {mijoz:!!c.mijoz, savollar:(c.savollar||[]).filter(Boolean)};
+  var l=b.toLowerCase();
+  if(/sotuv|magazin|savdo|kassa/.test(l)) return {mijoz:true, savollar:[]};
+  if(/birja|lot|tender/.test(l)) return {mijoz:false, savollar:['Berilgan yangi lotlar soni','Yutilgan lotlar soni','O\u2018tmagan lotlar soni','To\u2018g\u2018rilab qayta berilgan lotlar','Yozilgan tahlil / takliflar soni']};
+  if(/nazorat/.test(l)) return {mijoz:false, savollar:['Kassa farqi, so\u2018m (kam bo\u2018lsa minus bilan)','Tekshirilgan tovar turi (soni)','Topilgan xato / kamomad soni','Birjaga qo\u2018yilgan lotlar soni','Yutilgan lotlar soni','Moliyaviy Baza da tuzatilgan qatorlar soni']};
+  if(/xo.?jalik|ombor/.test(l)) return {mijoz:false, savollar:['Tushirilgan / joylashtirilgan tovar (qop, dona)','Bajarilgan ishlar soni']};
+  if(/usta|xizmat|tunikafon|montaj/.test(l)) return {mijoz:false, savollar:['Obyektlar soni','Bajarilgan ish summasi, so\u2018m']};
+  return {mijoz:false, savollar:[]};
+}
 function kunFoyda(x,r){
   var k=kunSoz(x); if(!k) return null;
   var n=Number(r.kun_raqam)||0;
@@ -7380,13 +7395,16 @@ function kunFoyda(x,r){
   return Math.round(qiymat-kunlikXarajat);
 }
 function kunForm(cur,vaqt,lat,lng){
-  var k=kunSoz(XME), soat=(m2d(vaqt)-m2d(cur.kelgan))/60;
+  var k=kunSoz(XME), soat=(m2d(vaqt)-m2d(cur.kelgan))/60, cfg=kunCfg(XME);
   sheet('<h2>Kun yakuni</h2>'+
     '<div class="mut" style="margin-bottom:12px">'+xesc(cur.kelgan)+' \u2192 '+xesc(vaqt)+
       ' \u00b7 '+d2m(soat*60)+' ish vaqti</div>'+
     '<label>Bugun nima ish qildingiz? <span style="color:#f08b8f">*</span></label>'+
     '<textarea id="kfIz" rows="3" placeholder="Masalan: 14 ta mijozga xizmat, ombor tartibga solindi, 3 ta dostavka">'+
       xesc(cur.kun_izoh||'')+'</textarea>'+
+    (cfg.mijoz?'<label>Bugun nechta mijozga xizmat ko\u2018rsatdingiz?</label>'+
+    '<input id="kfM" type="number" inputmode="numeric" min="0" value="'+(cur.kun_mijoz!=null?cur.kun_mijoz:'')+'" placeholder="masalan, 14">':'')+
+    cfg.savollar.map(function(q,i){return '<label>'+xesc(q)+'</label><input id="kfQ'+i+'" type="number" inputmode="decimal" value="'+((cur.kun_js&&cur.kun_js[q]!=null)?cur.kun_js[q]:'')+'">';}).join('')+
     (k? '<label>'+xesc(k.label)+'</label>'+
         '<input id="kfN" type="number" inputmode="decimal" value="'+(cur.kun_raqam!=null?cur.kun_raqam:'')+'" oninput="kunPrev()">'+
         '<div id="kfPrev" class="mut" style="margin-top:6px"></div>' : '')+
@@ -7411,8 +7429,10 @@ function kunSave(id,vaqt,lat,lng){
   var cur=XDAV.filter(function(a){return a.id===id})[0]; if(!cur) return closeSheet();
   var k=kunSoz(XME), raqam = k&&x$('kfN') ? (Number(x$('kfN').value)||0) : null;
   var soat=(m2d(vaqt)-m2d(cur.kelgan))/60;
+  var mij=x$('kfM')&&x$('kfM').value!==''?Math.max(0,Math.round(Number(x$('kfM').value)||0)):null;
+  var js={}, cfg=kunCfg(XME); cfg.savollar.forEach(function(q,i){var el=x$('kfQ'+i); if(el&&el.value!=='') js[q]=Number(el.value)||0;});
   var upd={ketgan:vaqt, lat_out:lat, lng_out:lng, ish_soat:Math.round(soat*100)/100,
-    kun_izoh:iz, kun_raqam:raqam};
+    kun_izoh:iz, kun_raqam:raqam, kun_mijoz:mij, kun_js:Object.keys(js).length?js:null};
   Object.assign(cur,upd);
   upd.kun_foyda=kunFoyda(XME,cur); cur.kun_foyda=upd.kun_foyda;
   x$('kfBtn').disabled=true;
@@ -7873,6 +7893,47 @@ function verdikt(j){
 /* ================= KUNLIK FOIZ VA DINAMIKA ================= */
 /* Foiz = o'sha kun keltirgan qiymat / o'sha kunning oylik ulushi.
    100% = xodim o'zining bir kunlik oyligini qopladi. */
+/* Shu kuni, shu bo'limdagi xodimlar kiritgan raqam (savdo) ichida ulushi, % */
+function kunUlush(x,r){
+  if(r==null||r.kun_raqam==null) return null;
+  var b=(x.bolim||'').trim(), sana=String(r.sana||'').slice(0,10), j=0, n=0;
+  XDAV.forEach(function(d){ if(String(d.sana||'').slice(0,10)!==sana||d.kun_raqam==null) return;
+    var y=XLIST.filter(function(a){return a.id===d.xodim_id;})[0]; if(!y||(y.bolim||'').trim()!==b) return;
+    j+=Number(d.kun_raqam)||0; n++; });
+  if(n<2||j<=0) return null;
+  return Math.round((Number(r.kun_raqam)||0)/j*1000)/10;
+}
+/* Rahbar: bir kunning savdo kesimi — mijozlar soni, savdo, ulush, reja % */
+function _bugunBlok(sana){
+  var kun=sana||(new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10));
+  var rs=XDAV.filter(function(d){return String(d.sana||'').slice(0,10)===kun&&(d.kun_mijoz!=null||d.kun_raqam!=null||d.kun_js);});
+  var hamma=XDAV.map(function(d){return String(d.sana||'').slice(0,10);}).filter(function(s,i,a){return a.indexOf(s)===i;}).sort().reverse().slice(0,31);
+  var sel='<select onchange="x$(\'bgBlok\').outerHTML=_bugunBlok(this.value)" style="font-size:12px;padding:4px 6px;border-radius:6px">'+
+    (hamma.indexOf(kun)<0?'<option selected>'+kun+'</option>':'')+hamma.map(function(s){return '<option'+(s===kun?' selected':'')+'>'+s+'</option>';}).join('')+'</select>';
+  if(!rs.length) return '<div id="bgBlok" class="card"><h3>\ud83d\udcc5 Kunlik savdo kesimi \u00b7 '+sel+'</h3><div class="mut">Bu kun uchun kiritilgan mijoz soni / savdo yo\u2018q. Xodim "KETDIM" bosganda kiritadi.</div></div>';
+  var grp={};
+  rs.forEach(function(d){var x=XLIST.filter(function(a){return a.id===d.xodim_id;})[0]; if(!x) return; var b=(x.bolim||'').trim()||'\u2014';
+    (grp[b]=grp[b]||[]).push({x:x,d:d});});
+  var h='<div id="bgBlok" class="card"><h3>\ud83d\udcc5 Kunlik savdo kesimi \u00b7 '+sel+'</h3>';
+  Object.keys(grp).forEach(function(b){var L=grp[b],jm=0,js=0;
+    L.forEach(function(o){jm+=Number(o.d.kun_mijoz)||0;js+=Number(o.d.kun_raqam)||0;});
+    L.sort(function(a,c){return (Number(c.d.kun_raqam)||0)-(Number(a.d.kun_raqam)||0);});
+    var cfg=kunCfg(L[0].x), ks=kunSoz(L[0].x), qs=cfg.savollar.slice();
+    L.forEach(function(o){if(o.d.kun_js)Object.keys(o.d.kun_js).forEach(function(q){if(qs.indexOf(q)<0)qs.push(q);});});
+    var mj=cfg.mijoz||L.some(function(o){return o.d.kun_mijoz!=null;}), sv=!!ks||L.some(function(o){return o.d.kun_raqam!=null;});
+    h+='<div class="mut" style="margin:8px 0 4px"><b>'+xesc(b)+'</b>'+(mj?' \u00b7 '+xnum(jm)+' mijoz':'')+(sv?' \u00b7 '+xnum(js):'')+'</div><div class="sc"><table>'+
+      '<tr><th>Xodim</th>'+(mj?'<th>Mijoz</th>':'')+qs.map(function(q){return '<th>'+xesc(q.length>28?q.slice(0,26)+'\u2026':q)+'</th>';}).join('')+(sv?'<th>'+xesc(ks?ks.label:'Savdo')+'</th><th>Ulush</th><th>Reja</th>':'')+'</tr>'+
+      L.map(function(o){var u=js>0&&o.d.kun_raqam!=null?Math.round((Number(o.d.kun_raqam)||0)/js*1000)/10:null, fz=kunFoiz(o.x,o.d);
+        return '<tr onclick="xDetail(\''+o.x.id+'\')" style="cursor:pointer"><td><b>'+xesc(o.x.ism)+'</b></td>'+
+          (mj?'<td>'+(o.d.kun_mijoz!=null?xnum(o.d.kun_mijoz):'\u2014')+'</td>':'')+
+          qs.map(function(q){var v=o.d.kun_js&&o.d.kun_js[q]!=null?o.d.kun_js[q]:null;return '<td>'+(v!=null?xnum(v):'\u2014')+'</td>';}).join('')+
+          (sv?'<td>'+(o.d.kun_raqam!=null?xnum(o.d.kun_raqam):'\u2014')+'</td>'+
+          '<td>'+(u!=null?'<b>'+u+'%</b>':'\u2014')+'</td>'+
+          '<td>'+(fz!=null?'<span class="pill '+(fz>=100?'p-ok':(fz>=60?'p-w':'p-b'))+'">'+fz+'%</span>':'\u2014')+'</td>':'')+'</tr>';}).join('')+
+      '</table></div>';});
+  h+='<div class="mut" style="margin-top:8px">Har bo\u2018lim o\u2018z savollariga javob beradi (Sozlamalar \u2192 Kunlik natija). Ulush \u2014 shu kuni bo\u2018lim savdosidagi hissasi. Reja \u2014 kunlik rejaga nisbatan. Hozircha qo\u2018lda kiritiladi; Savdo dasturi ishga tushgach POS dan o\u2018zi olinadi.</div></div>';
+  return h;
+}
 function kunFoiz(x,r){
   var k=kunSoz(x); if(!k) return null;
   if(r.kun_raqam==null) return null;
@@ -8353,7 +8414,7 @@ function aHisob(){
       _ks.map(function(x){return xesc(x.ism)+' <span class="mut">('+xesc(x.bolim||'')+')</span>';}).join(', ')+
       '<div style="height:8px"></div><button class="btn sm g" onclick="tgYubor()">\ud83d\udce8 Telegramga yuborish</button></div>'
     : '';
-  x$('admView').innerHTML=davrBar()+_alert+top+bol+xod+
+  x$('admView').innerHTML=davrBar()+_alert+_bugunBlok()+top+bol+xod+
     '<div class="mut" style="margin:0 0 12px">Qatorni bosing — bitta xodimning batafsil hisobi.</div>'+
     '<button class="btn g" onclick="eksport()">📤 Excel (CSV) yuklash</button>';
 }
@@ -8368,7 +8429,9 @@ function _kunBlok(x,d){
       var f=Number(r.kun_foyda)||0;
       var fz=kunFoiz(x,r), or=fz!=null?kunOrin(x,r.sana):null;
       return '<div class="it"><div class="m"><b>'+String(r.sana).slice(8)+'.'+String(r.sana).slice(5,7)+
-        (r.kun_raqam!=null?' \u00b7 <span class="mut">'+xnum(r.kun_raqam)+'</span>':'')+
+        (r.kun_mijoz!=null?' \u00b7 <span class="mut">'+xnum(r.kun_mijoz)+' mijoz</span>':'')+
+        (r.kun_js?Object.keys(r.kun_js).map(function(q){return ' \u00b7 <span class="mut" title="'+xesc(q)+'">'+xesc(q.split(/[,(]/)[0].trim())+': '+xnum(r.kun_js[q])+'</span>';}).join(''):'')+
+        (r.kun_raqam!=null?' \u00b7 <span class="mut">'+xnum(r.kun_raqam)+(kunUlush(x,r)!=null?' ('+kunUlush(x,r)+'%)':'')+'</span>':'')+
         (fz!=null?' <span class="pill '+(fz>=100?'p-ok':(fz>=60?'p-w':'p-b'))+'">'+fz+'%</span>':'')+
         (or?' <span class="mut">'+or.orin+'/'+or.jami+'</span>':'')+'</b>'+
         '<i>'+xesc(r.kun_izoh||'\u2014')+'</i></div>'+
@@ -8799,6 +8862,8 @@ function aSoz(){
           '<option value="foiz"'+(kk.tur==='foiz'?' selected':'')+'>Summadan foiz (%)</option>'+
           '<option value="dona"'+(kk.tur==='dona'?' selected':'')+'>1 birlikdan foyda (so‘m)</option></select></div>'+
         '<div><label>Qiymati</label><input id="kbQ'+bi+'" type="number" step="0.01" value="'+(kk.qiymat||0)+'"></div></div>'+
+        (function(){var cf=kunCfg({bolim:bn});return '<label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input type="checkbox" id="kbM'+bi+'" style="width:auto"'+(cf.mijoz?' checked':'')+'> Mijozlar sonini so\u2018rash</label>'+
+        '<label>Qo\u2018shimcha savollar (har qatorda bitta, javob \u2014 raqam)</label><textarea id="kbS'+bi+'" rows="3" placeholder="masalan: Kassa farqi, so\u2018m">'+xesc(cf.savollar.join('\n'))+'</textarea>';})()+
         '</div>';}).join('')+
     '</div>'+
     '<button class="btn" onclick="szSave()">Saqlash</button><div style="height:10px"></div>'+
@@ -8843,7 +8908,9 @@ function szSave(){
   var kunlik={};
   bolimlar().forEach(function(bn,bi){ if(!x$('kbN'+bi)) return;
     kunlik[x$('kbN'+bi).value]={label:x$('kbL'+bi).value.trim()||'Bugungi natija',
-      tur:x$('kbT'+bi).value, qiymat:+x$('kbQ'+bi).value||0}; });
+      tur:x$('kbT'+bi).value, qiymat:+x$('kbQ'+bi).value||0,
+      mijoz:!!(x$('kbM'+bi)&&x$('kbM'+bi).checked),
+      savollar:x$('kbS'+bi)?x$('kbS'+bi).value.split('\n').map(function(s){return s.trim();}).filter(Boolean):[]}; });
   var ball_bolim={};
   bolimlar().forEach(function(bn,ci){
     var o={};
