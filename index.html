@@ -8108,7 +8108,7 @@ function renderVaz(){
       (v.tasdiq==='yoq'&&!_qm?'<div class="mut" style="font-size:11px;margin-top:3px">Bu vazifa yopilgan</div>':'')):
             kech?'<span class="pill p-b">Muddati o‘tdi</span>':'<span class="pill p-w">Kutilmoqda</span>';
     return '<div class="it"><div class="m"><b>'+xesc(v.nom)+'</b><i>muddat: '+xesc(v.muddat||'—')+
-      ' · og‘irlik '+(v.ogirlik||1)+'</i></div>'+
+      ' · og‘irlik '+(v.ogirlik||1)+((+v.mukofot||0)>0?' · <b style="color:#6ee7a5">+'+xnum(+v.mukofot)+' so\u2018m</b>':'')+'</i></div>'+
       (v.holat==='bajarildi'?lab:'<button class="btn sm ok" onclick="vzDone(\''+v.id+'\')">Bajardim</button>')+
       '</div>'}).join('')
     : '<div class="mut" style="padding:14px 0">Bu turda vazifa yo‘q.</div>';
@@ -8165,6 +8165,12 @@ function baho(x,dav){
   var fiks=+x.fiks||0, kunlik=fiks/(XSOZ.ish_kuni||26), soatlik=kunlik/8;
   var ushla=Math.round(st.kelmagan*kunlik + st.kechJami*(soatlik/60));
   var qo=qoshSum(x,dav);
+  /* Qo'shimcha ish: mukofot summasi yozilgan vazifa bajarilib tasdiqlansa — oylikka qo'shiladi */
+  var vzMukList=vz.filter(function(v){return (+v.mukofot||0)>0&&_tasOk(v);});
+  var vzMuk=vzMukList.reduce(function(s,v){return s+(+v.mukofot||0);},0);
+  /* Oylik chegara: qo'shimcha ish haqi fiks oylikning N% dan oshmaydi (0 = chegarasiz) */
+  var vzMukTola=vzMuk, _qm=+(XSOZ.qosh_max_foiz)||0;
+  if(_qm>0&&fiks>0) vzMuk=Math.min(vzMuk,Math.round(fiks*_qm/100));
   /* Ball natijasi — fiks oylikni o'zgartirmaydi, alohida qo'shimcha yoki ushlash bo'lib chiqadi */
   var usul=(XSOZ&&XSOZ.ball_usul)||'foiz';
   var bandOb=null;
@@ -8177,7 +8183,9 @@ function baho(x,dav){
   } else {
     ballPul=Math.round(fiks*(K-1));
   }
-  var oylik=Math.max(0,Math.round(fiks+ballPul-ushla+qo.jami));
+  /* Siyosat: kundalik (biriktirilgan) vazifalar uchun alohida haq yo'q — ball faqat ushlash bera oladi */
+  if(XSOZ.ball_mukofot!==true&&ballPul>0) ballPul=0;
+  var oylik=Math.max(0,Math.round(fiks+ballPul-ushla+qo.jami+vzMuk));
 
   var hissa=null;
   if(!qollab&&n&&n.daromad!=null) hissa=Math.round((+n.daromad||0)-oylik-(+n.xarajat||0));
@@ -8185,7 +8193,7 @@ function baho(x,dav){
   return {qollab:qollab,BI:BI,BV:BV,BN:BN,intizom:intizom,vazifa:vazifa,natija:natija,
     vzBor:vzBor,ntBor:ntBor,maxBall:maxBall,
     jami:jami,K:K,ballPul:ballPul,ball_usul:usul,bolimSumma:!!(usul==='summa'&&(XSOZ.ball_bolim||{})[x.bolim||'']),fiks:fiks,ushla:ushla,oylik:oylik,st:st,vzSoni:vz.length,vF:vF,nF:nF,tasKut:tasKut,tasYoq:tasYoq,nazKech:nazKech,tasQayta:tasQayta,
-    mukofot:qo.mukofot,jarimaS:qo.jarima,qoshList:qo.list,hissa:hissa,n:n};
+    mukofot:qo.mukofot,jarimaS:qo.jarima,qoshList:qo.list,hissa:hissa,n:n,vzMuk:vzMuk,vzMukTola:vzMukTola,vzMukSoni:vzMukList.length};
 }
 function qoshSum(x,dav){
   var rs=XQOSH.filter(function(r){return r.xodim_id===x.id&&r.davr===dav;});
@@ -8440,6 +8448,7 @@ function renderNat(){
       '<b style="color:'+(b.ballPul>0?'#6ee7a5':'#f08b8f')+'">'+(b.ballPul>0?'+':'−')+xnum(Math.abs(b.ballPul))+'</b></div>')
      :'<div class="it"><div class="m"><b>Ball qo‘shimchasi</b><i>'+b.jami+' ball — norma</i></div>0</div>')+
     '<div class="it"><div class="m"><b>Ushlab qolish</b><i>kelmagan + kech</i></div>−'+xnum(b.ushla)+'</div>'+
+    (b.vzMuk?'<div class="it"><div class="m"><b>Qo\u2018shimcha ish haqi</b><i>'+b.vzMukSoni+' ta tasdiqlangan qo\u2018shimcha vazifa'+(b.vzMukTola>b.vzMuk?' \u00b7 chegara: '+xnum(b.vzMukTola)+' dan '+xnum(b.vzMuk)+' to\u2018landi':'')+'</i></div><b style="color:#6ee7a5">+'+xnum(b.vzMuk)+'</b></div>':'')+
     (b.mukofot?'<div class="it"><div class="m"><b>Mukofot</b></div><b style="color:#6ee7a5">+'+xnum(b.mukofot)+'</b></div>':'')+
     (b.jarimaS?'<div class="it"><div class="m"><b>Jarima</b></div><b style="color:#f08b8f">−'+xnum(b.jarimaS)+'</b></div>':'')+
     '<div class="it" style="border:0"><div class="m"><b style="font-size:17px">Chiqadigan oylik</b></div>'+
@@ -8765,6 +8774,7 @@ function xDetail(id){
     '<div class="it"><div class="m"><b>Fiks</b></div>'+xnum(b.fiks)+'</div>'+
     '<div class="it"><div class="m"><b>Ushlab qolish</b></div>−'+xnum(b.ushla)+'</div>'+
     '<div class="it"><div class="m"><b>Chiqadigan oylik</b></div><b>'+xnum(b.oylik)+'</b></div>'+
+    (b.vzMuk?'<div class="it"><div class="m"><b>Qo\u2018shimcha ish haqi</b><i>'+b.vzMukSoni+' ta tasdiqlangan qo\u2018shimcha vazifa'+(b.vzMukTola>b.vzMuk?' \u00b7 chegara: '+xnum(b.vzMukTola)+' dan '+xnum(b.vzMuk)+' to\u2018landi':'')+'</i></div><b style="color:#6ee7a5">+'+xnum(b.vzMuk)+'</b></div>':'')+
     (b.mukofot?'<div class="it"><div class="m"><b>Mukofot</b></div><b style="color:#6ee7a5">+'+xnum(b.mukofot)+'</b></div>':'')+
     (b.jarimaS?'<div class="it"><div class="m"><b>Jarima</b></div><b style="color:#f08b8f">\u2212'+xnum(b.jarimaS)+'</b></div>':'')+
     '<div style="height:10px"></div><button class="btn g" onclick="qoshForm(\''+x.id+'\')">\ud83c\udf81 Mukofot / jarima</button>'+
@@ -8874,7 +8884,7 @@ function aVazifa(){
          '</div>'):
         ((v.rahbar_tuzatdi)?'<span class="pill" style="margin-left:6px">🛠️ rahbar</span>':'');
       return '<div class="it" onclick="vzForm(\''+v.id+'\')"><div class="m"><b>'+xesc(v.nom)+'</b>'+
-        '<i>'+xesc(who||'—')+' · '+xesc(v.tur)+' · '+xesc(v.muddat||'')+' · og‘. '+(v.ogirlik||1)+
+        '<i>'+xesc(who||'—')+' · '+xesc(v.tur)+' · '+xesc(v.muddat||'')+' · og‘. '+(v.ogirlik||1)+((+v.mukofot||0)>0?' · <b style="color:#6ee7a5">+'+xnum(+v.mukofot)+'</b>':'')+
         (v.tasdiq==='yoq'&&v.tasdiq_izoh?' · <span style="color:#c0392b">'+xesc(v.tasdiq_izoh)+'</span>':'')+
         (v.tasdiq_kim?' · tasdiq: '+xesc(v.tasdiq_kim):'')+'</i></div>'+lab+act+'</div>'
     }).join('') : '<div class="mut" style="padding:14px 0">Bu oyda vazifa yo‘q.</div>')+'</div></div>';
@@ -8893,6 +8903,8 @@ function vzForm(id){
         return '<option'+(v.tur===t?' selected':'')+'>'+t+'</option>'}).join('')+'</select></div>'+
     '<div><label>Og‘irlik (1–5)</label><input id="vfOg" type="number" min="1" max="5" value="'+(v.ogirlik||1)+'"></div></div>'+
     '<label>Muddat</label><input id="vfMud" type="date" value="'+xesc(v.muddat||bugun())+'">'+
+    '<label>Qo\u2018shimcha ish uchun haq, so\u2018m (ixtiyoriy)</label><input id="vfMuk" type="number" inputmode="numeric" value="'+(v.mukofot||'')+'" placeholder="0 \u2014 oddiy vazifa, haq yo\u2018q">'+
+    '<div class="mut" style="margin-top:4px">Kundalik (biriktirilgan) vazifalar uchun haq yozilmaydi. Faqat ortiqcha, qo\u2018shimcha ish bo\u2018lsa summa yoziladi \u2014 vazifa bajarilib tasdiqlangach oylikka qo\u2018shiladi.</div>'+
     '<div style="height:14px"></div><button class="btn" onclick="vzSave('+(id?"'"+id+"'":'null')+')">Saqlash</button>'+
     (id?'<div style="height:8px"></div><button class="btn bad" onclick="vzDel(\''+id+'\')">🗑 O‘chirish</button>':'')+
     '<div style="height:8px"></div><button class="btn g" onclick="closeSheet()">Yopish</button>');
@@ -8906,7 +8918,7 @@ function vzSave(id){
   var xid=x$('vfKim').value;
   var row={ id:id||('vz'+Date.now()), nom:nom, xodim_id:xid||null,
     bolim: xid? (XLIST.filter(function(x){return x.id===xid})[0]||{}).bolim : x$('vfBol').value,
-    tur:x$('vfTur').value, ogirlik:+x$('vfOg').value||1, muddat:x$('vfMud').value,
+    tur:x$('vfTur').value, ogirlik:+x$('vfOg').value||1, muddat:x$('vfMud').value, mukofot:(+x$('vfMuk').value||0)||null,
     holat: id? (XVAZ.filter(function(a){return a.id===id})[0]||{}).holat||'yangi' : 'yangi' };
   sbPost('vazifa',[row],true,true).then(function(){
     var i=XVAZ.findIndex(function(a){return a.id===row.id});
@@ -9409,6 +9421,10 @@ function aSoz(){
     '<label>Hisoblash usuli</label><select id="szBU">'+
       '<option value="foiz"'+(((XSOZ.ball_usul||'foiz')==='foiz')?' selected':'')+'>Foizda — fiks oylikning foizi</option>'+
       '<option value="summa"'+((XSOZ.ball_usul==='summa')?' selected':'')+'>Aniq summa — hammaga bir xil</option></select>'+
+    '<label>Yuqori ball uchun mukofot berilsinmi?</label><select id="szBM"><option value="0"'+(XSOZ.ball_mukofot!==true?' selected':'')+'>Yo\u2018q \u2014 kundalik vazifa oddiy ish, ball faqat ushlab qoladi</option>'+
+      '<option value="1"'+(XSOZ.ball_mukofot===true?' selected':'')+'>Ha \u2014 yuqori ball uchun ham qo\u2018shimcha to\u2018lansin</option></select>'+
+    '<div class="mut" style="margin-top:4px">Qo\u2018shimcha haq faqat «qo\u2018shimcha ish uchun haq» yozilgan vazifa bajarilib tasdiqlanganda yoki Mukofot kiritilganda to\u2018lanadi.</div>'+
+    '<label>Qo\u2018shimcha ish haqi oyiga fiks oylikning ko\u2018pi bilan necha foizi (0 = chegarasiz)</label><input id="szQM" type="number" min="0" max="100" value="'+(XSOZ.qosh_max_foiz!=null?XSOZ.qosh_max_foiz:10)+'">'+
     '<div class="row mut" style="margin:8px 0 4px"><span style="flex:1">Ball</span><span style="flex:1">Koef.</span><span style="flex:1">Summa (so‘m)</span></div>'+
     XSOZ.band.map(function(b,i){return '<div class="row" style="margin-bottom:8px">'+
       '<input id="szB'+i+'" type="number" value="'+b.b+'" style="flex:1">'+
@@ -9518,7 +9534,7 @@ function szSave(){
   });
   var s={ball_bolim:ball_bolim,kunlik:kunlik,ish_boshi:x$('szB').value.trim(),ish_oxiri:x$('szO').value.trim(),bonus_daq:+x$('szBn').value||0,
     ish_kuni:+x$('szIk').value||26,dam_kun:+x$('szDk').value,lat:+x$('szLa').value||0,lng:+x$('szLo').value||0,
-    radius:+x$('szR').value||250,gps_majburiy:x$('szG').value==='1',gps_ozod:(x$('szGO')?x$('szGO').value.split(',').map(function(t){return t.trim().toLowerCase();}).filter(Boolean):(XSOZ.gps_ozod||[])),vaz_gps:(x$('szVG')?x$('szVG').value==='1':undefined),tasdiq_soat:(+x$('szTS').value||24),naz_min:(+x$('szNM').value||2),ball_usul:(x$('szBU')?x$('szBU').value:'foiz'),band:band,nuqtalar:szNRead().filter(function(n){return n.lat&&n.lng;})};
+    radius:+x$('szR').value||250,gps_majburiy:x$('szG').value==='1',gps_ozod:(x$('szGO')?x$('szGO').value.split(',').map(function(t){return t.trim().toLowerCase();}).filter(Boolean):(XSOZ.gps_ozod||[])),vaz_gps:(x$('szVG')?x$('szVG').value==='1':undefined),tasdiq_soat:(+x$('szTS').value||24),naz_min:(+x$('szNM').value||2),ball_usul:(x$('szBU')?x$('szBU').value:'foiz'),ball_mukofot:(x$('szBM')?x$('szBM').value==='1':false),qosh_max_foiz:(x$('szQM')?(+x$('szQM').value||0):10),band:band,nuqtalar:szNRead().filter(function(n){return n.lat&&n.lng;})};
   window._szN=null;
   sbPost('sozlama',[{kalit:'asosiy',data:s}],true,true).then(function(){
     XSOZ=Object.assign({},XDEF_SOZ,s); toast('Saqlandi'); admTab('soz');
