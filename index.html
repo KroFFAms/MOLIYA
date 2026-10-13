@@ -7922,8 +7922,10 @@ function loadMine(){
     sbGet('davomat?sana=gte.'+d+'-01&select=*&order=sana.desc&limit=2000'),
     sbGet('vazifa?select=*&order=muddat.desc&limit=1000'),
     sbGet('natija?davr=eq.'+d+'&select=*'),
-    sbGet('qoshimcha?davr=eq.'+d+'&select=*')
+    sbGet('qoshimcha?davr=eq.'+d+'&select=*'),
+    sbGet('shablon?select=id,tavsif').catch(function(){return [];})
   ]).then(function(r){ XDAV=r[0]||[]; XVAZ=r[1]||[]; XNAT=r[2]||[]; XQOSH=r[3]||[];
+    window.XTAVSIF={}; (r[4]||[]).forEach(function(t){ if(t&&t.tavsif) XTAVSIF[t.id]=t.tavsif; });
     renderDav(); }).catch(function(e){ console.error(e); toast('Ma’lumot yuklanmadi') });
 }
 
@@ -8614,11 +8616,23 @@ function _tasdiqYoz(id,ok,izoh,qaytaMumkin){
   });
 }
 
+/* Vazifa kimga tegishli: shaxsan unga berilgan yoki bo'limga umumiy berilgan.
+   Bo'limga umumiy vazifalar rahbarning o'ziga (rahbar "o'zini o'tkazgan" xodim yozuvi) tushmaydi. */
+/* Vazifa tavsifi (asosiy vazifa ichidagi ishlar) — shablondan */
+function _vzTavsif(v){ var m=/^sh(.+)_\d{8}$/.exec(String(v&&v.id||'')); return (m&&window.XTAVSIF&&XTAVSIF[m[1]])||''; }
+function _vzMeniki(v,x){
+  if(!x)return false;
+  if(v.xodim_id) return v.xodim_id===x.id;
+  if(v.bolim!==x.bolim) return false;
+  try{ if(localStorage.getItem('xk_boss_me')===x.id) return false; }catch(e){}
+  return true;
+}
 function renderVaz(){
+  var _ob=x$('vzBir'); if(_ob) _ob.remove();
   var turs=[['kunlik','Kunlik'],['haftalik','Haftalik'],['oylik','Oylik'],['yillik','Yillik']];
   x$('vzTabs').innerHTML=turs.map(function(t){
     return '<button class="'+(XVT===t[0]?'on':'')+'" onclick="XVT=\''+t[0]+'\';renderVaz()">'+t[1]+'</button>'}).join('');
-  var mine=XVAZ.filter(function(v){return v.tur===XVT&&(v.xodim_id===XME.id||(!v.xodim_id&&v.bolim===XME.bolim))});
+  var mine=XVAZ.filter(function(v){return v.tur===XVT&&_vzMeniki(v,XME)});
   mine.sort(function(a,b){return (a.holat==='bajarildi')-(b.holat==='bajarildi')||String(b.muddat).localeCompare(String(a.muddat))});
   x$('vzLst').innerHTML= mine.length? mine.map(function(v){
     var kech=v.muddat&&v.muddat<bugun()&&v.holat!=='bajarildi';
@@ -8629,11 +8643,39 @@ function renderVaz(){
       (_qm?'<div style="margin-top:5px"><button class="btn sm ok" onclick="vzQayta(\''+v.id+'\')">\u21ba Tuzatdim \u2014 qayta yuborish</button></div>':'')+
       (v.tasdiq==='yoq'&&!_qm?'<div class="mut" style="font-size:11px;margin-top:3px">Bu vazifa yopilgan</div>':'')):
             kech?'<span class="pill p-b">Muddati o‘tdi</span>':'<span class="pill p-w">Kutilmoqda</span>';
-    return '<div class="it"><div class="m"><b>'+xesc(v.nom)+'</b><i>muddat: '+xesc(v.muddat||'—')+
+    var _tv=_vzTavsif(v);
+    return '<div class="it"><div class="m"><b>'+xesc(v.nom)+'</b>'+(_tv?'<div class="mut" style="font-size:12px;margin:2px 0 3px;line-height:1.35">'+xesc(_tv)+'</div>':'')+'<i>muddat: '+xesc(v.muddat||'—')+
       ' · og‘irlik '+(v.ogirlik||1)+((+v.mukofot||0)>0?' · <b style="color:#6ee7a5">+'+xnum(+v.mukofot)+' so\u2018m</b>':'')+'</i></div>'+
       (v.holat==='bajarildi'?lab:'<button class="btn sm ok" onclick="vzDone(\''+v.id+'\')">Bajardim</button>')+
       '</div>'}).join('')
     : '<div class="mut" style="padding:14px 0">Bu turda vazifa yo‘q.</div>';
+  // Kunlik: bugungi hamma ishlar bitta ro'yxatda — belgilab, bitta tugma bilan yuboriladi
+  if(XVT==='kunlik'){
+    var b=bugun(), qol=mine.filter(function(v){return v.holat!=='bajarildi'&&(!v.muddat||v.muddat<=b);});
+    if(qol.length>=2){
+      var bx='<div class="card" style="border:1.5px solid var(--acc);margin-bottom:10px"><h3>📋 Bugungi ishlar — '+qol.length+' ta</h3>'+
+        '<div class="mut" style="margin-bottom:8px">Bajarganlaringizni belgilang va bitta tugmani bosing. Bajarilmaganidan belgini oling.</div>'+
+        qol.map(function(v){return '<label style="display:flex;gap:10px;align-items:center;margin:0 0 8px;font-size:14px;color:var(--tx)">'+
+          '<input type="checkbox" class="vzBir" value="'+xesc(v.id)+'" checked style="width:22px;height:22px;flex:none"> <span><b>'+xesc(v.nom)+'</b>'+(_vzTavsif(v)?'<br><span class="mut" style="font-size:11.5px">'+xesc(_vzTavsif(v))+'</span>':'')+'</span></label>';}).join('')+
+        '<button class="btn ok" onclick="vzDoneMany()">✅ Belgilanganlari bajarildi</button></div>';
+      x$('vzLst').insertAdjacentHTML('beforebegin','<div id="vzBir">'+bx+'</div>');
+    }
+  }
+}
+function vzDoneMany(){
+  var ids=[].slice.call(document.querySelectorAll('.vzBir:checked')).map(function(e){return e.value;});
+  if(!ids.length) return toast('Hech narsa belgilanmagan');
+  _joyTekshir(function(j){
+    var n=0;
+    ids.forEach(function(id){
+      var v=XVAZ.filter(function(a){return a.id===id})[0]; if(!v)return;
+      var upd={holat:'bajarildi', bajarilgan:bugun(), bajarilgan_vaqt:new Date().toISOString(), kechikdi:!!(v.muddat&&v.muddat<bugun()), tasdiq:null, tasdiq_kim:null, tasdiq_sana:null, tasdiq_izoh:null, kech_tasdiq:null,
+               lat:j.lat, lng:j.lng, masofa_m:j.m};
+      Object.assign(v,upd); n++;
+      sbPatch('vazifa','id=eq.'+encodeURIComponent(id),upd).catch(function(){qAdd({t:'patch',tbl:'vazifa',q:'id=eq.'+encodeURIComponent(id),body:upd});});
+    });
+    renderVaz(); toast('✅ '+n+' ta vazifa belgilandi');
+  });
 }
 function vzDone(id){
   var v=XVAZ.filter(function(a){return a.id===id})[0]; if(!v)return;
@@ -8656,7 +8698,7 @@ function baho(x,dav){
   var iF=Math.max(0,1-jarima);
   var intizom=BI*iF;
 
-  var vz=XVAZ.filter(function(v){return (v.xodim_id===x.id||(!v.xodim_id&&v.bolim===x.bolim))
+  var vz=XVAZ.filter(function(v){return _vzMeniki(v,x)
     && String(v.muddat||'').indexOf(dav)===0});
   var jamiOg=vz.reduce(function(s,v){return s+(+v.ogirlik||1)},0);
   var olgan=vz.reduce(function(s,v){
