@@ -7201,7 +7201,7 @@ var _SV_MAP={m:function(r){return r.naqd;}, i:function(r){return r.vozvrat;}, n:
   g:function(r){return r.q_karta;}, e:function(r){return r.q_payme1;},
   r:function(r){return r.tun_qarz;}, s:function(r){return r.trav_qarz;}, l:function(r){return r.klik;}};
 var _SV_NOM={m:'Magazin naqd',i:'Vazvrat',n:'Karta',o:'Payme1',f:'Payme2',c:'HR kirim',h:'Qarz (naqd)',g:'Qarz (karta)',e:'Xaridor payme1',
-  r:'Tunikafon (bo’lim qarzi)',s:'Travertin (bo’lim qarzi)',l:'KLIK',xa:'Xarajat',xr:'Xarid (summa)'};
+  r:'Tunikafon (bo’lim qarzi)',s:'Travertin (bo’lim qarzi)',l:'KLIK',xa:'Xarajat',xr:'Xarid (summa)',tun:'Tunikafon kirim (summa)'};
 var _svLast={}, _svBusy=false;
 function _svTd(dd,k){return (dd&&dd._sv&&k in dd._sv&&Number(dd[k]||0)===Number(dd._sv[k]||0)&&Number(dd[k]||0)!==0)?' style="background:#D8F0D8" title="Savdodan avtomatik"':'';}
 function _svR(v){return Math.round((Number(v)||0)*100)/100;}
@@ -7290,8 +7290,11 @@ function savdoOl(opt){
   }
   var mm=('0'+m).slice(-2), last=new Date(+y,m,0).getDate();
   _svBusy=true;_svLast[key]=Date.now();_svStat('⏳ Savdodan olinyapti...','#555');
+  var _tunP=fetch(SB_URL+'/rest/v1/rpc/tun_kirim_oy',{method:'POST',headers:_sbHdr(),body:JSON.stringify({p_from:y+'-'+mm+'-01',p_to:y+'-'+mm+'-'+last})})
+    .then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});
   fetch(SB_URL+'/rest/v1/rpc/moliya_kunlik',{method:'POST',headers:_sbHdr(),body:JSON.stringify({p_from:y+'-'+mm+'-01',p_to:y+'-'+mm+'-'+last})})
     .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error('HTTP '+r.status+' '+t.slice(0,120));});return r.json();})
+    .then(function(rows){return _tunP.then(function(tun){window._svTunList=tun;return rows;});})
     .then(function(rows){
       _svBusy=false;
       if(!Array.isArray(rows))rows=[];
@@ -7299,6 +7302,7 @@ function savdoOl(opt){
       try{_svXq(raw,rows,!!opt.force,res);}catch(e){console.error('svXq',e);}
       try{_svXa(raw,rows,!!opt.force,res);}catch(e){console.error('svXa',e);}
       try{_svXr(raw,rows,!!opt.force,res);}catch(e){console.error('svXr',e);}
+      try{if(Array.isArray(window._svTunList))_svTun(raw,window._svTunList,!!opt.force,res);}catch(e){console.error('svTun',e);}
       if(_stD&&_stD._k===y+'-'+m)_stD=null;
       var vaqt=new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
       var t='✅ '+vaqt+' · '+rows.length+' kun savdo'+(res.upd?' · '+res.kun+' kun yangilandi':' · o’zgarish yo’q')+(res.farq.length?' · ⚠️ '+res.farq.length+' ta farq':'')+(res.xaSkip?' · karta/bank chiqimi '+fmt(res.xaSkip)+' (qo’lda)':'');
@@ -7402,6 +7406,43 @@ function _svXr(raw,rows,force,res){
   Object.keys(have).forEach(function(k){
     if(want[k])return; var x=have[k];
     if(!x._svv||same(vals(x),x._svv)||force){var sn=x.sana,d=JSON.parse(JSON.stringify(_XR_DEF));for(var kk in d)x[kk]=d[kk];x.sana=sn;delete x._svx;delete x._svv;res.upd++;}
+  });
+}
+/* ---- Tunikafon: xodim ilovasidagi "Tunikafon kirim" (Jobir, Alam) -> Kiritish → Tunikafon jadvali ----
+   To'lov: naqd→Naqd sotuv, HR→HR kirim, Payme1→Payme1, Payme2→Payme2, Karta→Karta; avans bo'lsa Avans ustunlariga. */
+function _svTun(raw,list,force,res){
+  if(!raw.tunikafon)raw.tunikafon={};var TU=raw.tunikafon;if(!TU.days)TU.days=[];if(!TU.buyers)TU.buyers=[];
+  var D=TU.days,B=TU.buyers,want={};
+  var COL={naqd:'c',hr:'d',payme1:'e',payme2:'f',karta:'g'}, ACOL={naqd:'h',hr:'d',payme1:'i',payme2:'j',karta:'l'};
+  list.forEach(function(t){want['tk|'+t.id]=t;});
+  var sig=function(t){return [t.sana,t.xaridor||'',_svR(t.kv),_svR(t.narx),_svR(t.summa),_svR(t.tolandi),t.tolov,!!t.avans,_svR(t.ustaga),t.izoh||''].join('|');};
+  var cur=function(i){var d=D[i]||{},b=B[i]||{};var s=0;['c','d','e','f','g','h','i','j','l'].forEach(function(k){s+=_svR(d[k]);});return [_svR(b.summa),_svR(b.tolandi),_svR(b.ustaga),s,(b.nom||'')].join('|');};
+  var put=function(i,t){
+    var d=D[i]||(D[i]={}),b=B[i]||(B[i]={});
+    ['c','d','e','f','g','h','i','j','k','l'].forEach(function(k){d[k]=0;});
+    d.sana=_svSana(t.sana);d.nom=t.izoh||('Tunikafon · '+(t.xodim||''));
+    var col=(t.avans?ACOL:COL)[t.tolov]||'c'; d[col]=_svR(t.tolandi);
+    b.nom=t.xaridor||'';b.kv=_svR(t.kv);b.narx=_svR(t.narx);b.summa=_svR(t.summa);b.oldingi=b.oldingi||0;b.tolandi=_svR(t.tolandi);b.ustaga=_svR(t.ustaga);
+    d._svx='tk|'+t.id;d._svs=sig(t);d._svc=cur(i);
+  };
+  var have={};for(var i=0;i<Math.max(D.length,B.length);i++){if(D[i]&&D[i]._svx)have[D[i]._svx]=i;}
+  var blank=function(i){var d=D[i]||{},b=B[i]||{};if(d._svx)return false;if((d.nom||'').trim()||(b.nom||'').trim())return false;
+    var z=true;['c','d','e','f','g','h','i','j','k','l'].forEach(function(k){if(+d[k])z=false;});['kv','narx','summa','tolandi','ustaga','oldingi'].forEach(function(k){if(+b[k])z=false;});return z;};
+  Object.keys(want).forEach(function(k){
+    var t=want[k];
+    if(k in have){var i=have[k];
+      if(D[i]._svs===sig(t))return;
+      if(!D[i]._svc||D[i]._svc===cur(i)||force){put(i,t);res.upd++;}
+      else res.farq.push({sana:_svSana(t.sana),k:'tun',qolda:_svR((B[i]||{}).summa),savdo:_svR(t.summa)});
+      return;}
+    var at=-1,n=Math.max(D.length,B.length);for(var j=0;j<n;j++){if(blank(j)){at=j;break;}}
+    if(at<0)at=n;
+    put(at,t);res.upd++;
+  });
+  Object.keys(have).forEach(function(k){
+    if(want[k])return;var i=have[k];
+    if(!D[i]._svc||D[i]._svc===cur(i)||force){var d=D[i],b=B[i]||{};['c','d','e','f','g','h','i','j','k','l'].forEach(function(c){d[c]=0;});d.nom='';
+      ['kv','narx','summa','tolandi','ustaga'].forEach(function(c){b[c]=0;});b.nom='';delete d._svx;delete d._svs;delete d._svc;res.upd++;}
   });
 }
 /* ---- Xaridorlar qarzi (oy jami) savdodan: + qarzga sotildi, − to'landi ---- */
@@ -7625,6 +7666,9 @@ function saveEntry(){
   </div>
 </div>
 
+<!-- TUNIKAFON KIRIM -->
+<div id="v-tun" class="view wrap"></div>
+
 <!-- BOSHQARUV -->
 <div id="v-adm" class="view wrap">
   <div id="admGate">
@@ -7679,7 +7723,7 @@ function d2m(m){m=Math.max(0,Math.round(m));return xpad(Math.floor(m/60))+':'+xp
 function toast(t,ms){var e=x$('toast');e.textContent=t;e.classList.add('on');
   clearTimeout(window._tt);window._tt=setTimeout(function(){e.classList.remove('on')},ms||2600)}
 function sheet(html){x$('sheet').innerHTML=html;x$('mask').classList.add('on')}
-function closeSheet(){x$('mask').classList.remove('on')}
+function closeSheet(){if(window._xmMajbur)return;x$('mask').classList.remove('on')}
 function oyNomi(d){var n=['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
   return n[+d.slice(5,7)-1]+' '+d.slice(0,4)}
 
@@ -7780,7 +7824,11 @@ function doLogin(){
   var x=XLIST.filter(function(a){return a.id===id})[0];
   if(!x) return toast('Xodim topilmadi');
   if(String(x.pin||'1234')!==pin) return toast('Parol noto‘g‘ri');
-  XME=x; localStorage.setItem('xk_me',id); enter();
+  XME=x; localStorage.setItem('xk_me',id);
+  // xodim kirdi — shu qurilmadagi rahbar sessiyasi yopiladi (Moliyaga yana parol bilan kiriladi)
+  if(!(localStorage.getItem('xk_boss_me')===id)){ try{ localStorage.removeItem('moliya_auth_ts'); }catch(e){}
+    var _mw=document.getElementById('mainWrap'); if(_mw) _mw.style.display='none'; }
+  enter();
 }
 function bossEnter(){
   XBOSS=true;
@@ -7791,6 +7839,9 @@ function bossEnter(){
     if(sm&&!XBOSS_OFF&&XLIST.some(function(x){return x.id===sm})) bossSwitchMe(sm,true); }catch(e){}
 }
 var XBOSS_OFF=false;
+/* Hozir rahbarning o'zi ishlayaptimi (Boshqaruv yoki rahbar o'zini xodim sifatida o'tkazgan).
+   Oddiy xodim — hatto rahbar kompyuterida kirgan bo'lsa ham — Moliyaviy Bazani ko'rmaydi. */
+function _xkBossNow(){ try{ if(XBOSS) return true; var bm=localStorage.getItem('xk_boss_me'); return !!(XME&&bm&&XME.id===bm); }catch(e){ return !!XBOSS; } }
 function _bossDevice(){ try{ return localStorage.getItem('moliya_auth')==='1'||localStorage.getItem('moliya_pin_ok')==='1'||!!localStorage.getItem('xk_boss_me')||!!XADMKEY; }catch(e){ return !!XADMKEY; } }
 /* Rahbar (Moliya paroli bilan kirgan) o'zini xodim sifatida o'tkazadi — parol so'ralmaydi */
 function bossAsMe(){
@@ -7816,6 +7867,7 @@ function enter(){
   x$('who').innerHTML='<span style="font-size:18px;vertical-align:middle">👤</span> '+xesc(XME.ism)+
     ' <span style="opacity:.6">▾</span><br>'+xesc(XME.bolim||'');
   buildNav(); loadMine(); show('dav');
+  try{ xmTekshir(); }catch(e){}
 }
 function chiqish(){ if(!confirm('Hisobdan chiqasizmi? Keyin qayta parol so‘raladi.'))return;
   localStorage.removeItem('xk_me'); location.reload() }
@@ -7825,24 +7877,25 @@ function buildNav(){
   if(XBOSS) it=[['adm','⚙️','Boshqaruv'],['soz','🔧','Sozlama'],['me','👤','O‘zimni o‘tkazish'],['moliya','📈','Moliya']];
   else{
     it=[['dav','🕘','Davomat'],['vaz','✅','Vazifa']];
+    if(XME&&XME.tun_kirim) it.push(['tun','🔧','Tunikafon']);
     if(_menRahbar()) it.push(['tas','🛡️','Tasdiqlash']);
     it.push(['nat','📊','Natija'],['adm','⚙️','Boshqaruv'],['soz','🔧','Sozlama']);
-    if(_bossDevice()) it.push(['moliya','📈','Moliya']);
+    if(_xkBossNow()) it.push(['moliya','📈','Moliya']);
   }
   x$('nav').innerHTML=it.map(function(a){
     return '<button id="nb-'+a[0]+'" onclick="show(\''+a[0]+'\')"><em>'+a[1]+'</em>'+a[2]+'</button>'}).join('');
 }
 function show(v){
-  if(v==='moliya') return xkClose();
+  if(v==='moliya') return _xkBossNow()?xkClose():toast('Moliyaviy Baza faqat rahbar uchun');
   if(v==='soz'){ XADMT='soz'; v='adm'; }
   if(v==='me'&&XBOSS) return bossAsMe();
   if(XBOSS) v='adm';
-  ['dav','vaz','tas','nat','adm'].forEach(function(k){
-    x$('v-'+k).classList.toggle('on',k===v);
+  ['dav','vaz','tas','nat','adm','tun'].forEach(function(k){
+    var _vv=x$('v-'+k); if(_vv) _vv.classList.toggle('on',k===v);
     var b=x$('nb-'+k); if(b) b.classList.toggle('on',k===v&&!(k==='adm'&&XADMT==='soz'));
   });
   var _sb=x$('nb-soz'); if(_sb) _sb.classList.toggle('on',v==='adm'&&XADMT==='soz');
-  var _f={dav:renderDav,vaz:renderVaz,tas:renderTas,nat:renderNat}[v];
+  var _f={dav:renderDav,vaz:renderVaz,tas:renderTas,nat:renderNat,tun:renderTun}[v];
   if(_f){
     var el=x$('v-'+v);
     if(el){ var old=el.querySelector('.errbox'); if(old) old.remove(); }
@@ -8063,6 +8116,149 @@ function masofa(a1,o1,a2,o2){
   return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
 }
 
+
+/* ================= TUNIKAFON KIRIM (ruxsati borlar: tun_kirim) ================= */
+var XTUN=[], XTUN_OY=null;
+var _TUN_TOL=[['naqd','Naqd'],['payme1','Payme 1'],['payme2','Payme 2'],['karta','Karta'],['hr','Bank (HR)']];
+function _tunPin(){return {p_xodim:XME.id,p_pin:String(XME.pin||'1234')};}
+function tunOy(d){var p=(XTUN_OY||davrHoz()).split('-'),y=+p[0],m=+p[1]+d;if(m<1){m=12;y--;}if(m>12){m=1;y++;}XTUN_OY=y+'-'+xpad(m);renderTun();}
+function renderTun(){
+  var el=x$('v-tun'); if(!el) return;
+  if(!XME||!XME.tun_kirim){ el.innerHTML='<div class="card">Tunikafon kirimiga ruxsat yo‘q.</div>'; return; }
+  XTUN_OY=XTUN_OY||davrHoz();
+  el.innerHTML='<div class="card"><div class="mut">Yuklanmoqda…</div></div>';
+  sbRpc('tun_kirim_royxat',Object.assign(_tunPin(),{p_oy:XTUN_OY})).then(function(r){ XTUN=r||[]; _tunDraw(); })
+    .catch(function(e){ var m=String(e.message||e);
+      el.innerHTML='<div class="warnbox">'+(/tun_kirim_royxat|PGRST202|404/.test(m)?'Serverda Tunikafon jadvali yo‘q — <b>xodim_tunikafon.sql</b> ni ishga tushiring.':'Ulanmadi: '+xesc(m))+'</div>'; });
+}
+function _tunDraw(){
+  var el=x$('v-tun'); if(!el) return;
+  var T={summa:0,tolandi:0,kv:0,ustaga:0}; XTUN.forEach(function(r){T.summa+=+r.summa||0;T.tolandi+=+r.tolandi||0;T.kv+=+r.kv||0;T.ustaga+=+r.ustaga||0;});
+  var h='<div class="card"><div class="row" style="justify-content:space-between"><button class="btn g sm" onclick="tunOy(-1)">◀</button>'+
+    '<b>'+oyNomi(XTUN_OY+'-01')+'</b><button class="btn g sm" onclick="tunOy(1)">▶</button></div>'+
+    '<div class="grid3" style="margin-top:10px"><div class="stat"><b>'+xnum(T.summa)+'</b><i>Jami summa</i></div>'+
+    '<div class="stat"><b>'+xnum(T.tolandi)+'</b><i>To‘landi</i></div><div class="stat"><b>'+xnum(T.summa-T.tolandi)+'</b><i>Qarz</i></div></div>'+
+    '<div class="mut" style="margin-top:6px">'+XTUN.length+' ta yozuv · '+(Math.round(T.kv*100)/100)+' m² · ustaga '+xnum(T.ustaga)+'</div></div>'+
+    '<button class="btn" onclick="tunForm()">➕ Yangi kirim</button><div style="height:12px"></div>';
+  var byD={}; XTUN.forEach(function(r){(byD[r.sana]=byD[r.sana]||[]).push(r);});
+  Object.keys(byD).sort().reverse().forEach(function(d){
+    h+='<div class="card"><h3>'+d.split('-').reverse().join('.')+'</h3><div class="lst">'+byD[d].map(function(r){
+      var mine=r.xodim_id===XME.id, q=(+r.summa||0)-(+r.tolandi||0);
+      return '<div class="it"'+(mine?' onclick="tunForm(\''+r.id+'\')"':'')+'><div class="m"><b>'+xesc(r.xaridor||'—')+'</b>'+
+        '<i>'+(r.kv?(+r.kv)+' m² × '+xnum(r.narx)+' · ':'')+'jami '+xnum(r.summa)+' · to‘landi '+xnum(r.tolandi)+
+        ' ('+xesc((_TUN_TOL.filter(function(t){return t[0]===r.tolov})[0]||[0,r.tolov])[1])+(r.avans?', avans':'')+')'+
+        (q>0?' · <span style="color:#f08b8f">qarz '+xnum(q)+'</span>':'')+(r.ustaga?' · ustaga '+xnum(r.ustaga):'')+
+        (r.izoh?' · '+xesc(r.izoh):'')+' · <span class="mut">'+xesc(r.xodim||'')+'</span></i></div>'+(mine?'›':'')+'</div>';}).join('')+'</div></div>';
+  });
+  if(!XTUN.length) h+='<div class="mut" style="text-align:center">Bu oyda hali kirim yo‘q</div>';
+  el.innerHTML=h;
+}
+function tunForm(id){
+  var r=id?XTUN.filter(function(a){return a.id===id})[0]:{sana:bugun(),tolov:'naqd'};
+  if(!r) return;
+  sheet('<h2>'+(id?'Kirimni tahrirlash':'Yangi Tunikafon kirim')+'</h2>'+
+    '<label>Sana</label><input id="tfSana" type="date" value="'+xesc(r.sana||bugun())+'">'+
+    '<label>Xaridor (mijoz)</label><input id="tfXar" value="'+xesc(r.xaridor||'')+'" placeholder="Ism familiya">'+
+    '<div class="grid3"><div><label>m²</label><input id="tfKv" type="number" inputmode="decimal" value="'+(r.kv||'')+'" oninput="_tunSum()"></div>'+
+    '<div><label>Narx (1 m²)</label><input id="tfNarx" type="number" inputmode="numeric" value="'+(r.narx||'')+'" oninput="_tunSum()"></div>'+
+    '<div><label>Jami summa</label><input id="tfSum" type="number" inputmode="numeric" value="'+(r.summa||'')+'"></div></div>'+
+    '<div class="grid2"><div><label>To‘landi</label><input id="tfTol" type="number" inputmode="numeric" value="'+(r.tolandi||'')+'"></div>'+
+    '<div><label>To‘lov turi</label><select id="tfTur">'+_TUN_TOL.map(function(t){return '<option value="'+t[0]+'"'+(r.tolov===t[0]?' selected':'')+'>'+t[1]+'</option>'}).join('')+'</select></div></div>'+
+    '<label style="display:flex;gap:8px;align-items:center"><input id="tfAv" type="checkbox" style="width:auto"'+(r.avans?' checked':'')+'> Avans (ish hali bajarilmagan)</label>'+
+    '<label>Ustaga</label><input id="tfUst" type="number" inputmode="numeric" value="'+(r.ustaga||'')+'">'+
+    '<label>Izoh</label><input id="tfIz" value="'+xesc(r.izoh||'')+'">'+
+    '<div style="height:14px"></div><button class="btn" onclick="tunSave('+(id?"'"+id+"'":'null')+')">Saqlash</button>'+
+    (id?'<div style="height:8px"></div><button class="btn bad" onclick="tunSave(\''+id+'\',1)">🗑 O‘chirish</button>':'')+
+    '<div style="height:8px"></div><button class="btn g" onclick="closeSheet()">Yopish</button>');
+}
+function _tunSum(){var k=+x$('tfKv').value||0,n=+x$('tfNarx').value||0;if(k&&n)x$('tfSum').value=Math.round(k*n);}
+function tunSave(id,del){
+  if(del&&!confirm('O‘chirilsinmi?'))return;
+  var row={id:id||'',sana:x$('tfSana').value||bugun(),xaridor:x$('tfXar').value.trim(),kv:+x$('tfKv').value||0,narx:+x$('tfNarx').value||0,
+    summa:+x$('tfSum').value||0,tolandi:+x$('tfTol').value||0,tolov:x$('tfTur').value,avans:x$('tfAv').checked,
+    ustaga:+x$('tfUst').value||0,izoh:x$('tfIz').value.trim(),ochirildi:!!del};
+  if(!del){ if(!row.xaridor) return toast('Xaridorni yozing'); if(!row.summa&&!row.tolandi) return toast('Summa yoki to‘langan pulni yozing');
+    if(row.tolandi>row.summa&&row.summa&&!row.avans&&!confirm('To‘langan pul summadan ko‘p. Davom etaymi?')) return; }
+  sbRpc('tun_kirim_saqla',Object.assign(_tunPin(),{p_row:row})).then(function(){ closeSheet(); toast(del?'O‘chirildi':'Saqlandi'); XTUN_OY=row.sana.slice(0,7); renderTun(); })
+    .catch(function(e){ toast('Saqlanmadi: '+String(e.message||e).slice(0,80)); });
+}
+
+/* ================= XODIM SHAXSIY MA'LUMOTLARI ================= */
+var _XM_KERAK=[['pasport_seriya','Pasport seriyasi'],['pasport_raqam','Pasport raqami'],['jshshir','JSHSHIR'],['tugilgan','Tug‘ilgan sana'],['manzil','Manzil'],['tel','Telefon'],['rasm_bor','Pasport surati']];
+var _XM={}, _XM_RASM=null;
+function _xmToliq(m){return _XM_KERAK.every(function(k){return !!(m&&m[k[0]]);});}
+function xmTekshir(){
+  if(!XME) return;
+  sbRpc('xodim_malumot_mening',{p_xodim:XME.id,p_pin:String(XME.pin||'1234')}).then(function(m){
+    _XM=m||{}; if(!_xmToliq(_XM)) xmForm(true);
+  }).catch(function(){ /* jadval yo'q yoki internet yo'q — bloklamaymiz */ });
+}
+function xmForm(majbur){
+  var m=_XM||{}; _XM_RASM=null; window._xmMajbur=!!majbur;
+  var I=function(id,lbl,val,t,ph){return '<label>'+lbl+'</label><input id="xm_'+id+'"'+(t?' type="'+t+'"':'')+' value="'+xesc(val||'')+'"'+(ph?' placeholder="'+ph+'"':'')+'>';};
+  sheet('<h2>🪪 Shaxsiy ma’lumotlar</h2>'+
+    (majbur?'<div class="warnbox" style="margin-bottom:8px">Davom etishdan oldin ma’lumotlaringizni to‘liq kiriting. Ular faqat rahbariyatga ko‘rinadi.</div>':'')+
+    '<div class="grid2"><div>'+I('pasport_seriya','Pasport seriyasi',m.pasport_seriya,'','AA')+'</div><div>'+I('pasport_raqam','Pasport raqami',m.pasport_raqam,'','1234567')+'</div></div>'+
+    I('jshshir','JSHSHIR (14 raqam)',m.jshshir,'','pasportdagi shaxsiy raqam')+
+    '<div class="grid2"><div>'+I('berilgan','Kim tomonidan berilgan',m.berilgan,'','IIB …')+'</div><div>'+I('berilgan_sana','Berilgan sana',m.berilgan_sana,'date')+'</div></div>'+
+    I('tugilgan','Tug‘ilgan sana',m.tugilgan,'date')+
+    '<div class="grid2"><div>'+I('viloyat','Viloyat',m.viloyat||'Buxoro')+'</div><div>'+I('tuman','Tuman',m.tuman)+'</div></div>'+
+    I('manzil','Manzil (mahalla, ko‘cha, uy)',m.manzil)+
+    I('tel','Telefon',m.tel||XME.tel,'tel','+998 …')+
+    '<div class="grid2"><div>'+I('tel2','Qo‘shimcha telefon',m.tel2,'tel')+'</div><div>'+I('tel2_kim','Kimniki',m.tel2_kim,'','onasi, akasi…')+'</div></div>'+
+    '<label>Pasport surati '+(m.rasm_bor?'<span class="pill p-ok">yuklangan</span>':'')+'</label>'+
+    '<input id="xm_rasm" type="file" accept="image/*" capture="environment" onchange="_xmRasm(this)"><div id="xmRasmH" class="mut"></div>'+
+    '<div style="height:14px"></div><button class="btn" onclick="xmSave()">Saqlash</button>'+
+    (majbur?'':'<div style="height:8px"></div><button class="btn g" onclick="closeSheet()">Yopish</button>'));
+}
+function _xmRasm(inp){
+  var f=inp.files&&inp.files[0]; if(!f) return; x$('xmRasmH').textContent='Tayyorlanmoqda…';
+  var rd=new FileReader(); rd.onload=function(){ var im=new Image(); im.onload=function(){
+      var mx=1400,w=im.width,h=im.height,k=Math.min(1,mx/Math.max(w,h)); var c=document.createElement('canvas');
+      c.width=Math.round(w*k); c.height=Math.round(h*k); c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      _XM_RASM=c.toDataURL('image/jpeg',0.72); x$('xmRasmH').textContent='✅ Surat tayyor ('+Math.round(_XM_RASM.length*0.75/1024)+' KB)'; };
+    im.onerror=function(){ x$('xmRasmH').textContent='Rasm o‘qilmadi, boshqasini tanlang'; }; im.src=rd.result; };
+  rd.readAsDataURL(f);
+}
+function xmSave(){
+  var d={}; ['pasport_seriya','pasport_raqam','jshshir','berilgan','berilgan_sana','tugilgan','viloyat','tuman','manzil','tel','tel2','tel2_kim'].forEach(function(k){var e=x$('xm_'+k);d[k]=e?e.value.trim():'';});
+  d.pasport_seriya=d.pasport_seriya.toUpperCase().replace(/[^A-Z]/g,'');
+  d.pasport_raqam=d.pasport_raqam.replace(/\D/g,''); d.jshshir=d.jshshir.replace(/\D/g,'');
+  if(!/^[A-Z]{2}$/.test(d.pasport_seriya)) return toast('Seriya 2 ta harf (masalan AA)');
+  if(!/^\d{7}$/.test(d.pasport_raqam)) return toast('Pasport raqami 7 ta raqam');
+  if(!/^\d{14}$/.test(d.jshshir)) return toast('JSHSHIR 14 ta raqam');
+  if(!d.tugilgan) return toast('Tug‘ilgan sanani kiriting');
+  if(!d.manzil) return toast('Manzilni yozing');
+  if(d.tel.replace(/\D/g,'').length<9) return toast('Telefonni to‘liq yozing');
+  if(!_XM_RASM&&!(_XM&&_XM.rasm_bor)) return toast('Pasport suratini yuklang');
+  if(_XM_RASM) d.rasm=_XM_RASM;
+  toast('Saqlanmoqda…');
+  sbRpc('xodim_malumot_saqla',{p_xodim:XME.id,p_pin:String(XME.pin||'1234'),p_d:d}).then(function(){
+    _XM=Object.assign({},d,{rasm_bor:true}); delete _XM.rasm; window._xmMajbur=false; closeSheet(); toast('✅ Ma’lumotlar saqlandi');
+  }).catch(function(e){ toast('Saqlanmadi: '+String(e.message||e).slice(0,80)); });
+}
+/* Boshqaruv: xodim ma'lumotlarini ko'rish */
+function xmAdmin(id){
+  var x=XLIST.filter(function(a){return a.id===id})[0]||{};
+  sheet('<h2>🪪 '+xesc(x.ism||'')+'</h2><div class="mut">Yuklanmoqda…</div>');
+  sbRpc('xodim_malumot_hammasi',{},true).then(function(all){
+    var m=(all||[]).filter(function(a){return a.xodim_id===id})[0];
+    if(!m) return sheet('<h2>🪪 '+xesc(x.ism||'')+'</h2><div class="mut">Hali to‘ldirmagan.</div><div style="height:12px"></div><button class="btn g" onclick="closeSheet()">Yopish</button>');
+    var R=function(l,v){return v?'<div style="margin-bottom:6px"><span class="mut">'+l+':</span> <b>'+xesc(v)+'</b></div>':'';};
+    sheet('<h2>🪪 '+xesc(x.ism||'')+'</h2>'+R('Pasport',(m.pasport_seriya||'')+' '+(m.pasport_raqam||''))+R('JSHSHIR',m.jshshir)+
+      R('Berilgan',[m.berilgan,m.berilgan_sana].filter(Boolean).join(', '))+R('Tug‘ilgan',m.tugilgan)+
+      R('Manzil',[m.viloyat,m.tuman,m.manzil].filter(Boolean).join(', '))+R('Telefon',m.tel)+R('Qo‘shimcha',[m.tel2,m.tel2_kim].filter(Boolean).join(' — '))+
+      R('Yangilangan',String(m.yangilandi||'').slice(0,10))+
+      (m.rasm_bor?'<div id="xmImg"><button class="btn g" onclick="xmAdminRasm(\''+id+'\')">🖼 Pasport suratini ko‘rish</button></div>':'<div class="mut">Surat yo‘q</div>')+
+      '<div style="height:10px"></div><button class="btn g" onclick="closeSheet()">Yopish</button>');
+  }).catch(function(e){ sheet('<h2>🪪</h2><div class="warnbox">'+(/Boshqaruv kodi/.test(String(e.message))?'Boshqaruv kodi kerak.':'Ochilmadi: '+xesc(String(e.message||e).slice(0,120)))+'</div><button class="btn g" onclick="closeSheet()">Yopish</button>'); });
+}
+function xmAdminRasm(id){
+  var b=x$('xmImg'); if(b) b.innerHTML='<div class="mut">Yuklanmoqda…</div>';
+  sbRpc('xodim_malumot_rasm',{p_xodim:id},true).then(function(src){ if(b) b.innerHTML=src?'<img src="'+xesc(src)+'" style="width:100%;border-radius:10px">':'<div class="mut">Surat yo‘q</div>'; })
+    .catch(function(){ if(b) b.innerHTML='<div class="mut">Ochilmadi</div>'; });
+}
+
 /* ================= PAROL ================= */
 function sbRpc(fn,args,admin){
   return fetch(XSB+'rpc/'+fn,{method:'POST',headers:sbHead(!!admin),body:JSON.stringify(args)})
@@ -8077,7 +8273,8 @@ function meMenu(){
     '<button class="btn g" onclick="closeSheet()">Yopish</button>');
   sheet('<h2>'+xesc(XME.ism)+'</h2><div class="mut" style="margin-bottom:14px">'+xesc(XME.bolim||'')+'</div>'+
     '<button class="btn g" onclick="pinForm()">🔑 Parolni o‘zgartirish</button><div style="height:8px"></div>'+
-    (_bossDevice()?'<button class="btn" onclick="closeSheet();xkClose()">📈 Moliyaviy Bazaga qaytish</button><div style="height:8px"></div>':'')+
+    '<button class="btn g" onclick="xmForm(false)">🪪 Shaxsiy ma’lumotlarim</button><div style="height:8px"></div>'+
+    (_xkBossNow()?'<button class="btn" onclick="closeSheet();xkClose()">📈 Moliyaviy Bazaga qaytish</button><div style="height:8px"></div>':'')+
     (localStorage.getItem('xk_boss_me')?'<button class="btn g" onclick="bossOnly()">↩ Faqat Boshqaruv (rahbar) rejimi</button><div style="height:8px"></div>':'')+
     (XADMKEY?'<button class="btn g" onclick="admOut()">🔒 Boshqaruvdan chiqish</button><div style="height:8px"></div>':'')+
     '<button class="btn bad" onclick="chiqish()">🚪 Hisobdan chiqish</button><div style="height:8px"></div>'+
@@ -9673,6 +9870,10 @@ function xForm(id,pre){
     '<label>Bo\u2018lim boshlig\u2018i (vazifalarni tasdiqlaydi)</label><select id="xfRah">'+
       '<option value="0"'+(x.rahbar?'':' selected')+'>Yo\u2018q</option>'+
       '<option value="1"'+(x.rahbar?' selected':'')+'>Ha \u2014 nazoratchi</option></select>'+
+    '<label>🔧 Tunikafon kirim ruxsati</label><select id="xfTun">'+
+      '<option value="0"'+(x.tun_kirim?'':' selected')+'>Yo‘q</option>'+
+      '<option value="1"'+(x.tun_kirim?' selected':'')+'>Ha — Tunikafon kirimini kiritadi</option></select>'+
+    (id?'<div style="height:10px"></div><button class="btn g" onclick="xmAdmin(\''+id+'\')">🪪 Shaxsiy ma’lumotlari (pasport, manzil)</button>':'')+
     '<label>Holati</label><select id="xfFaol"><option value="1"'+(x.faol!==false?' selected':'')+'>Faol</option>'+
       '<option value="0"'+(x.faol===false?' selected':'')+'>Nofaol</option></select>'+
     '<div style="height:14px"></div><button class="btn" onclick="xSave('+(id?"'"+id+"'":'null')+')">Saqlash</button>'+
@@ -9684,6 +9885,8 @@ function xSave(id){
     lavozim:x$('xfLav').value.trim()||null, fiks:+x$('xfFiks').value||0,
     pin:(x$('xfPin').value.trim().length>=4?x$('xfPin').value.trim():'1234'), baho_turi:x$('xfTur').value, rahbar:(x$('xfRah')?x$('xfRah').value==='1':false),
     tel:x$('xfTel').value.trim()||null, faol:x$('xfFaol').value==='1' };
+  var _tv=(x$('xfTun')?x$('xfTun').value==='1':false), _ox=id?XLIST.filter(function(a){return a.id===id})[0]:null;
+  if(_tv||(_ox&&('tun_kirim' in _ox))) row.tun_kirim=_tv;
   sbPost('xodim',[row],true,true).then(function(){
     var i=XLIST.findIndex(function(a){return a.id===row.id});
     if(i>=0) XLIST[i]=row; else XLIST.push(row);
@@ -9868,14 +10071,18 @@ function xkOpen(mode){
   else if(mode==='boss'){ bossEnter(); }
 }
 function xkClose(){
+  var boss=false; try{ boss=_xkBossNow(); }catch(e){}
   document.getElementById('xkRoot').classList.remove('on');
   document.documentElement.style.overflow='';
   var lock=document.getElementById('lockScreen');
   var mw=document.getElementById('mainWrap');
+  if(!boss){ if(mw) mw.style.display='none'; if(lock) lock.style.display='flex'; return; }
   if(mw && mw.style.display==='none' && lock) lock.style.display='flex';
 }
 function xkFromLock(){
   var lock=document.getElementById('lockScreen');
+  var mw=document.getElementById('mainWrap');
+  if(mw) mw.style.display='none';
   if(lock) lock.style.display='none';
   xkOpen('xodim');
 }
