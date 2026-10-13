@@ -8632,7 +8632,12 @@ function renderVaz(){
   var turs=[['kunlik','Kunlik'],['haftalik','Haftalik'],['oylik','Oylik'],['yillik','Yillik']];
   x$('vzTabs').innerHTML=turs.map(function(t){
     return '<button class="'+(XVT===t[0]?'on':'')+'" onclick="XVT=\''+t[0]+'\';renderVaz()">'+t[1]+'</button>'}).join('');
-  var mine=XVAZ.filter(function(v){return v.tur===XVT&&_vzMeniki(v,XME)});
+  var _bg=bugun();
+  var _hamma=XVAZ.filter(function(v){return v.tur===XVT&&_vzMeniki(v,XME)});
+  // O'tgan kunlarning vazifalari ro'yxatda osilib turmaydi — faqat bugungi va keyingilari.
+  // (Kunlik: faqat bugungi. O'tganlari "Oldingi kunlar" tugmasi bilan ko'riladi, bahoga baribir kiradi.)
+  var _eski=_hamma.filter(function(v){return v.muddat&&v.muddat<_bg;});
+  var mine=window._vzEskiKor?_hamma:_hamma.filter(function(v){return !(v.muddat&&v.muddat<_bg);});
   mine.sort(function(a,b){return (a.holat==='bajarildi')-(b.holat==='bajarildi')||String(b.muddat).localeCompare(String(a.muddat))});
   x$('vzLst').innerHTML= mine.length? mine.map(function(v){
     var kech=v.muddat&&v.muddat<bugun()&&v.holat!=='bajarildi';
@@ -8648,10 +8653,15 @@ function renderVaz(){
       ' · og‘irlik '+(v.ogirlik||1)+((+v.mukofot||0)>0?' · <b style="color:#6ee7a5">+'+xnum(+v.mukofot)+' so\u2018m</b>':'')+'</i></div>'+
       (v.holat==='bajarildi'?lab:'<button class="btn sm ok" onclick="vzDone(\''+v.id+'\')">Bajardim</button>')+
       '</div>'}).join('')
-    : '<div class="mut" style="padding:14px 0">Bu turda vazifa yo‘q.</div>';
+    : '<div class="mut" style="padding:14px 0">'+(XVT==='kunlik'?'Bugun uchun vazifa yo‘q.':'Bu turda vazifa yo‘q.')+'</div>';
+  if(_eski.length){
+    var _eb=_eski.filter(function(v){return v.holat!=='bajarildi';}).length;
+    x$('vzLst').insertAdjacentHTML('beforeend','<div style="text-align:center;margin-top:10px"><button class="btn g sm" onclick="window._vzEskiKor=!window._vzEskiKor;renderVaz()">'+
+      (window._vzEskiKor?'▲ Oldingi kunlarni yashirish':'▼ Oldingi kunlar ('+_eski.length+(_eb?', '+_eb+' tasi bajarilmagan':'')+')')+'</button></div>');
+  }
   // Kunlik: bugungi hamma ishlar bitta ro'yxatda — belgilab, bitta tugma bilan yuboriladi
   if(XVT==='kunlik'){
-    var b=bugun(), qol=mine.filter(function(v){return v.holat!=='bajarildi'&&(!v.muddat||v.muddat<=b);});
+    var b=bugun(), qol=mine.filter(function(v){return v.holat!=='bajarildi'&&(!v.muddat||v.muddat===b);});
     if(qol.length>=2){
       var bx='<div class="card" style="border:1.5px solid var(--acc);margin-bottom:10px"><h3>📋 Bugungi ishlar — '+qol.length+' ta</h3>'+
         '<div class="mut" style="margin-bottom:8px">Bajarganlaringizni belgilang va bitta tugmani bosing. Bajarilmaganidan belgini oling.</div>'+
