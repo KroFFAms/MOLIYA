@@ -7467,11 +7467,98 @@ _SV_NOM.xq_yangi='Xaridor: qarzga sotildi';_SV_NOM.xq_tolandi='Xaridor: to’lan
 
 /* ============ 🛒 SAVDO TAHLILI: tannarx, foyda, sotuvchilar foizi (faqat hisobot) ============ */
 var _stY=null,_stM=null,_stD=null,_stBusy=false;
-function _stFoiz(){var v=parseFloat(String((SOZ&&SOZ.sotuv_foiz)||'').replace(',','.'));return isFinite(v)?v:0;}
-function stFoizSet(v){
-  v=parseFloat(String(v).replace(',','.'));if(!isFinite(v)||v<0)v=0;
-  SOZ.sotuv_foiz=v;try{localStorage.setItem('moliya_soz',JSON.stringify(SOZ));}catch(e){}
+function _stFoiz(){return 0;}
+/* ---- Sotuvchilar mukofoti (rahbar qarori) ----
+   Sotuvdan emas — oy FOYDASIDAN foiz. Faqat:
+     1) magazin oylik savdosi rejadan yuqori bo'lsa (umumiy reja),
+     2) sotuvchining oylik bahosi (Xodimlar tizimi, KPI) talabdan past bo'lmasa (standart 80).
+   Fond = yalpi foyda × foiz; shart bajargan sotuvchilarga savdosiga qarab (yoki teng) bo'linadi. */
+function _mkSoz(){var z=(SOZ&&SOZ.mukofot)||{};return {foiz:+z.foiz||0,reja:+z.reja||0,ball:(z.ball==null?80:+z.ball),taqsim:z.taqsim||'savdo',map:z.map||{}};}
+function stMkSet(k,v){
+  if(!SOZ.mukofot)SOZ.mukofot={};
+  if(k==='map'){SOZ.mukofot.map=Object.assign({},SOZ.mukofot.map||{},v);}
+  else if(k==='taqsim'){SOZ.mukofot.taqsim=v;}
+  else {v=parseFloat(String(v).replace(/\s/g,'').replace(',','.'));if(!isFinite(v)||v<0)v=0;SOZ.mukofot[k]=v;}
+  try{localStorage.setItem('moliya_soz',JSON.stringify(SOZ));}catch(e){}
   _stDraw();
+}
+var _stKpi={k:null,ball:{},xodim:[],busy:false,err:''};
+function _stKpiYukla(){
+  var dav=_stY+'-'+('0'+_stM).slice(-2);
+  if(_stKpi.k===dav||_stKpi.busy)return;
+  if(typeof sbGet!=='function'||typeof baho!=='function'){_stKpi.err='Xodimlar tizimi yuklanmagan';return;}
+  _stKpi.busy=true;
+  var _ld=dav+'-'+('0'+new Date(+_stY,+_stM,0).getDate()).slice(-2);
+  var Q=[sbGet('xodim?select=*'),sbGet('davomat?sana=gte.'+dav+'-01&sana=lte.'+_ld+'&select=*&limit=5000'),sbGet('vazifa?muddat=gte.'+dav+'-01&muddat=lte.'+_ld+'&select=*&limit=5000'),
+         sbGet('natija?davr=eq.'+dav+'&select=*'),sbGet('qoshimcha?davr=eq.'+dav+'&select=*'),sbGet('sozlama?kalit=eq.asosiy&select=data')];
+  Promise.all(Q).then(function(r){
+    var keep={L:XLIST,D:XDAV,V:XVAZ,N:XNAT,Q:XQOSH,S:XSOZ};
+    try{
+      XLIST=r[0]||[];XDAV=r[1]||[];XVAZ=r[2]||[];XNAT=r[3]||[];XQOSH=r[4]||[];
+      if(!XSOZ||!Object.keys(XSOZ).length)XSOZ=Object.assign({},XDEF_SOZ,(r[5]&&r[5][0]&&r[5][0].data)||{});
+      var b={};XLIST.forEach(function(x){try{var o=baho(x,dav);b[x.id]=Math.round(o&&o.jami!=null?o.jami:0);}catch(e){}});
+      _stKpi={k:dav,ball:b,xodim:XLIST.filter(function(x){return x.faol!==false;}).map(function(x){return {id:x.id,ism:x.ism,bolim:x.bolim};}),busy:false,err:''};
+    }finally{ if(document.getElementById('xkRoot')&&document.getElementById('xkRoot').classList.contains('on')){XLIST=keep.L;XDAV=keep.D;XVAZ=keep.V;XNAT=keep.N;XQOSH=keep.Q;} }
+    _stDraw();
+  }).catch(function(e){_stKpi.busy=false;_stKpi.err=String(e&&e.message||e).slice(0,80);_stDraw();});
+}
+function _mkXodim(nom){
+  var z=_mkSoz(); if(z.map[nom]) return z.map[nom];
+  var f=String(nom||'').trim().split(/\s+/)[0].toLowerCase(); if(!f) return '';
+  var c=_stKpi.xodim.filter(function(x){return String(x.ism||'').toLowerCase().indexOf(f)===0;});
+  if(c.length>1){var mg=c.filter(function(x){return x.bolim==='magazin';});if(mg.length===1)return mg[0].id;}
+  return c.length===1?c[0].id:'';
+}
+function _stMukofot(T,S){
+  var z=_mkSoz(), r={foiz:z.foiz,reja:z.reja,ok:false,sabab:'',jami:0,fond:0,oluvchi:0,qator:[]};
+  r.fond=Math.max(0,Math.round((+T.foyda||0)*z.foiz/100));
+  if(!z.foiz) r.sabab='foiz kiritilmagan';
+  else if(!z.reja) r.sabab='savdo rejasi kiritilmagan';
+  else if((+T.jami||0)<z.reja) r.sabab='savdo rejadan past';
+  else if((+T.foyda||0)<=0) r.sabab='oy foydasi yo‘q';
+  var tayyor=(_stKpi.k===(_stY+'-'+('0'+_stM).slice(-2)));
+  S.forEach(function(s){var xid=_mkXodim(s.nom),ball=(xid&&tayyor)?_stKpi.ball[xid]:null;
+    r.qator.push({nom:s.nom,summa:Math.max(0,+s.summa||0),xid:xid,ball:ball,mos:(ball!=null&&ball>=z.ball),mk:0});});
+  if(!r.sabab){
+    var mos=r.qator.filter(function(q){return q.mos;});
+    if(!tayyor) r.sabab='ballar yuklanmoqda';
+    else if(!mos.length) r.sabab='hech kim '+z.ball+' ballga yetmadi';
+    else{
+      var sm=mos.reduce(function(a,q){return a+q.summa;},0);
+      mos.forEach(function(q){q.mk=Math.round(z.taqsim==='teng'||!sm? r.fond/mos.length : r.fond*q.summa/sm);});
+      r.ok=true;r.oluvchi=mos.length;r.jami=mos.reduce(function(a,q){return a+q.mk;},0);
+    }
+  }
+  return r;
+}
+function _stMukofotHtml(T,S,f){
+  _stKpiYukla();
+  var z=_mkSoz(), m=_stMukofot(T,S), ok='✅', no='❌';
+  var inp=function(k,v,w,step){return '<input type="number" min="0" step="'+(step||'1')+'" value="'+(v||'')+'" onchange="stMkSet(\''+k+'\',this.value)" style="width:'+w+'px;padding:3px 6px;border:1px solid #ccc;border-radius:5px">';};
+  var h='<div style="margin-top:14px;background:#fff;border:1.5px solid #6a3d9a;border-radius:10px;padding:12px">'+
+    '<div style="font-weight:700;color:#6a3d9a;font-size:14px;margin-bottom:4px">🎯 Sotuvchilar mukofoti — oy foydasidan</div>'+
+    '<div style="font-size:12px;color:#555;margin-bottom:8px">Rahbar qarori: sotuvdan emas, oy foydasidan foiz. Faqat magazin savdosi rejadan yuqori bo‘lsa va sotuvchining oylik bahosi talabga javob bersa.</div>'+
+    '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-bottom:10px;align-items:center">'+
+      '<span>Foyda foizi: '+inp('foiz',z.foiz,60,'0.1')+' %</span>'+
+      '<span>Magazin oylik savdo rejasi: '+inp('reja',z.reja,120)+' so‘m</span>'+
+      '<span>Kamida ball: '+inp('ball',z.ball,55)+'</span>'+
+      '<span>Taqsimlash: <select onchange="stMkSet(\'taqsim\',this.value)" style="padding:3px 6px;border:1px solid #ccc;border-radius:5px"><option value="savdo"'+(z.taqsim!=='teng'?' selected':'')+'>savdosiga qarab</option><option value="teng"'+(z.taqsim==='teng'?' selected':'')+'>teng</option></select></span></div>'+
+    '<div style="font-size:12.5px;margin-bottom:8px">'+
+      ((+T.jami||0)>=z.reja&&z.reja?ok:no)+' Savdo: <b>'+f(T.jami)+'</b> / reja '+(z.reja?f(z.reja):'—')+' &nbsp; · &nbsp; '+
+      'Yalpi foyda: <b>'+f(T.foyda)+'</b> × '+(z.foiz||0)+'% = fond <b style="color:#6a3d9a">'+f(m.fond)+'</b>'+
+      (m.ok?'':' &nbsp; <span style="color:#C00000">· '+m.sabab+'</span>')+'</div>';
+  if(_stKpi.err) h+='<div style="font-size:11px;color:#9C5700;margin-bottom:6px">⚠️ Ballar olinmadi: '+_stKpi.err+'</div>';
+  var opts=function(sel){return '<option value="">— xodim —</option>'+_stKpi.xodim.map(function(x){return '<option value="'+x.id+'"'+(x.id===sel?' selected':'')+'>'+String(x.ism).replace(/</g,'&lt;')+'</option>';}).join('');};
+  h+='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px"><thead><tr style="background:#6a3d9a;color:#fff"><th style="padding:6px 8px;text-align:left">Sotuvchi (savdoda)</th><th style="padding:6px 8px;text-align:left">Xodim</th><th style="padding:6px 8px;text-align:right">Sotgan</th><th style="padding:6px 8px;text-align:right">Ball</th><th style="padding:6px 8px;text-align:right">Mukofot</th></tr></thead><tbody>';
+  m.qator.forEach(function(q,i){
+    var bl=q.ball==null?'<span style="color:#aaa">—</span>':('<b style="color:'+(q.mos?'#1F7A3D':'#C00000')+'">'+q.ball+'</b>');
+    h+='<tr style="background:'+(i%2?'#f8f5fc':'#fff')+'"><td style="padding:5px 8px">'+String(q.nom||'—').replace(/</g,'&lt;')+'</td>'+
+      '<td style="padding:3px 8px"><select onchange="var o={};o['+JSON.stringify(String(q.nom)).replace(/"/g,'&quot;')+']=this.value;stMkSet(\'map\',o)" style="font-size:11px;padding:2px;max-width:150px">'+opts(q.xid)+'</select></td>'+
+      '<td style="padding:5px 8px;text-align:right">'+f(q.summa)+'</td><td style="padding:5px 8px;text-align:right">'+bl+'</td>'+
+      '<td style="padding:5px 8px;text-align:right;font-weight:700;color:#6a3d9a">'+(q.mk?f(q.mk):'<span style="color:#ccc">0</span>')+'</td></tr>';});
+  h+='<tr style="background:#EFE8F7;font-weight:700"><td style="padding:6px 8px" colspan="4">JAMI mukofot</td><td style="padding:6px 8px;text-align:right;color:#6a3d9a">'+f(m.jami)+'</td></tr></tbody></table></div>'+
+    '<div style="font-size:11px;color:#888;margin-top:4px">Ball — Xodimlar tizimidagi shu oy bahosi (100 dan). Faqat hisobot: pul o‘zi yozilmaydi.</div></div>';
+  return h;
 }
 function stOy(d){var y=+_stY,m=+_stM+d;if(m<1){m=12;y--;}if(m>12){m=1;y++;}_stY=y;_stM=m;_stD=null;renderSavdoTahlil();}
 function renderSavdoTahlil(){
@@ -7495,7 +7582,7 @@ function _stDraw(){
   var pc=function(a,b){return b?(Math.round(a/b*1000)/10)+'%':'—';};
   var T={chek:0,jami:0,vozvrat:0,tannarx:0,foyda:0,qarzga:0,bolimga:0,qarz_qaytdi:0};
   K.forEach(function(r){for(var k in T)T[k]+=(+r[k]||0);});
-  var sotF=0;S.forEach(function(s){sotF+=Math.max(0,+s.summa||0)*fz/100;});
+  var _mk=_stMukofot(T,S);
   var th='padding:6px 8px;text-align:right;white-space:nowrap',td='padding:5px 8px;text-align:right;white-space:nowrap';
   var card=function(t,v,c,sub){return '<div style="flex:1 1 150px;background:#fff;border:1px solid #e3e8ef;border-radius:10px;padding:10px 12px"><div style="font-size:11px;color:#667">'+t+'</div><div style="font-size:18px;font-weight:700;color:'+(c||'#1F4E79')+'">'+v+'</div>'+(sub?'<div style="font-size:11px;color:#889">'+sub+'</div>':'')+'</div>';};
   var h='<h2 style="font-size:17px;color:#1F4E79;margin:0 0 10px">🛒 Savdo tahlili <span style="font-size:12px;color:#888;font-weight:400">— KROFF Savdo’dan, faqat hisobot (pulga ta’sir qilmaydi)</span></h2>';
@@ -7509,18 +7596,18 @@ function _stDraw(){
      card('Savdo (vozvrat ayirilgan)',f(T.jami),null,T.chek+' chek · vozvrat '+f(T.vozvrat))+
      card('Tannarx (kelish narxi)',f(T.tannarx),'#7a4b00')+
      card('Yalpi foyda',f(T.foyda),T.foyda<0?'#C00000':'#1F7A3D','marja '+pc(T.foyda,T.jami))+
-     card('Sotuvchilar foizi ('+fz+'%)',f(sotF),'#6a3d9a','foydadan keyin: '+f(T.foyda-sotF))+
+     card('Sotuvchilar mukofoti',f(_mk.jami),'#6a3d9a',_mk.ok?('fond '+_mk.foiz+'% foydadan · '+_mk.oluvchi+' kishi'):(_mk.sabab||'shart bajarilmadi'))+
      card('Mijozlarga qarzga',f(T.qarzga),'#C00000','bo’limlarga: '+f(T.bolimga))+
      card('Qarzdan qaytdi',f(T.qarz_qaytdi),'#1F7A3D','sof: '+f(T.qarzga-T.qarz_qaytdi))+'</div>';
   if(d.xaridsiz&&+d.xaridsiz.soni)h+='<div style="font-size:12px;color:#9C5700;margin:-6px 0 12px">⚠️ '+d.xaridsiz.soni+' ta sotilgan tovarning kelish narxi 0 (jami '+f(d.xaridsiz.summa)+') — ularning foydasi oshib ko’rinadi.</div>';
-  // Sotuvchilar
-  h+='<h3 style="font-size:14px;color:#1F4E79;margin:4px 0 6px">👤 Sotuvchilar</h3>'+
-     '<div style="font-size:12px;margin-bottom:6px">Foiz (sotgan summasidan, hammaga bir xil): <input type="number" step="0.1" min="0" value="'+fz+'" onchange="stFoizSet(this.value)" style="width:70px;padding:3px 6px;border:1px solid #ccc;border-radius:5px"> %</div>';
-  h+='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:620px"><thead><tr style="background:#1F4E79;color:#fff"><th style="padding:6px 8px;text-align:left">Sotuvchi</th><th style="'+th+'">Chek</th><th style="'+th+'">Sotgan summa</th><th style="'+th+'">Foiz '+fz+'%</th><th style="'+th+'">Tannarx</th><th style="'+th+'">Foyda</th><th style="'+th+'">Marja</th></tr></thead><tbody>';
-  var ss={chek:0,summa:0,tannarx:0,foyda:0,fz:0};
-  S.forEach(function(s,i){var sf=Math.max(0,+s.summa||0)*fz/100;ss.chek+=+s.chek||0;ss.summa+=+s.summa||0;ss.tannarx+=+s.tannarx||0;ss.foyda+=+s.foyda||0;ss.fz+=sf;
-    h+='<tr style="background:'+(i%2?'#f7f9fc':'#fff')+'"><td style="padding:5px 8px">'+String(s.nom||'—').replace(/</g,'&lt;')+'</td><td style="'+td+'">'+(s.chek||0)+'</td><td style="'+td+';font-weight:600">'+f(s.summa)+'</td><td style="'+td+';color:#6a3d9a;font-weight:600">'+f(sf)+'</td><td style="'+td+'">'+f(s.tannarx)+'</td><td style="'+td+';color:'+(s.foyda<0?'#C00000':'#1F7A3D')+'">'+f(s.foyda)+'</td><td style="'+td+'">'+pc(s.foyda,s.summa)+'</td></tr>';});
-  h+='<tr style="background:#E8EEF6;font-weight:700"><td style="padding:6px 8px">JAMI</td><td style="'+td+'">'+ss.chek+'</td><td style="'+td+'">'+f(ss.summa)+'</td><td style="'+td+';color:#6a3d9a">'+f(ss.fz)+'</td><td style="'+td+'">'+f(ss.tannarx)+'</td><td style="'+td+'">'+f(ss.foyda)+'</td><td style="'+td+'">'+pc(ss.foyda,ss.summa)+'</td></tr></tbody></table></div>';
+  // Sotuvchilar: savdo va foyda (ma'lumot) + rahbar qarori bo'yicha mukofot
+  h+='<h3 style="font-size:14px;color:#1F4E79;margin:4px 0 6px">👤 Sotuvchilar</h3>';
+  h+='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px"><thead><tr style="background:#1F4E79;color:#fff"><th style="padding:6px 8px;text-align:left">Sotuvchi</th><th style="'+th+'">Chek</th><th style="'+th+'">Sotgan summa</th><th style="'+th+'">Tannarx</th><th style="'+th+'">Foyda</th><th style="'+th+'">Marja</th></tr></thead><tbody>';
+  var ss={chek:0,summa:0,tannarx:0,foyda:0};
+  S.forEach(function(s,i){ss.chek+=+s.chek||0;ss.summa+=+s.summa||0;ss.tannarx+=+s.tannarx||0;ss.foyda+=+s.foyda||0;
+    h+='<tr style="background:'+(i%2?'#f7f9fc':'#fff')+'"><td style="padding:5px 8px">'+String(s.nom||'—').replace(/</g,'&lt;')+'</td><td style="'+td+'">'+(s.chek||0)+'</td><td style="'+td+';font-weight:600">'+f(s.summa)+'</td><td style="'+td+'">'+f(s.tannarx)+'</td><td style="'+td+';color:'+(s.foyda<0?'#C00000':'#1F7A3D')+'">'+f(s.foyda)+'</td><td style="'+td+'">'+pc(s.foyda,s.summa)+'</td></tr>';});
+  h+='<tr style="background:#E8EEF6;font-weight:700"><td style="padding:6px 8px">JAMI</td><td style="'+td+'">'+ss.chek+'</td><td style="'+td+'">'+f(ss.summa)+'</td><td style="'+td+'">'+f(ss.tannarx)+'</td><td style="'+td+'">'+f(ss.foyda)+'</td><td style="'+td+'">'+pc(ss.foyda,ss.summa)+'</td></tr></tbody></table></div>';
+  h+=_stMukofotHtml(T,S,f);
   // Kunlik
   h+='<h3 style="font-size:14px;color:#1F4E79;margin:16px 0 6px">📅 Kunlik</h3><div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:860px"><thead><tr style="background:#375623;color:#fff"><th style="padding:6px 8px;text-align:left">Kun</th><th style="'+th+'">Chek</th><th style="'+th+'">Savdo</th><th style="'+th+'">Vozvrat</th><th style="'+th+'">Tannarx</th><th style="'+th+'">Foyda</th><th style="'+th+'">Marja</th><th style="'+th+'">Qarzga (mijoz)</th><th style="'+th+'">Bo’limga</th><th style="'+th+'">Qarzdan qaytdi</th></tr></thead><tbody>';
   K.forEach(function(r,i){h+='<tr style="background:'+(i%2?'#f7faf4':'#fff')+'"><td style="padding:5px 8px">'+_svSana(r.kun)+'</td><td style="'+td+'">'+(r.chek||0)+'</td><td style="'+td+';font-weight:600">'+f(r.jami)+'</td><td style="'+td+';color:#C00000">'+f(r.vozvrat)+'</td><td style="'+td+'">'+f(r.tannarx)+'</td><td style="'+td+';color:'+(r.foyda<0?'#C00000':'#1F7A3D')+';font-weight:600">'+f(r.foyda)+'</td><td style="'+td+'">'+pc(r.foyda,r.jami)+'</td><td style="'+td+'">'+f(r.qarzga)+'</td><td style="'+td+'">'+f(r.bolimga)+'</td><td style="'+td+'">'+f(r.qarz_qaytdi)+'</td></tr>';});
