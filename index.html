@@ -1088,6 +1088,7 @@ function exportFullHtml(silent, customName, safe){
   <button id="tab_t5" class="tab" onclick="showTab('t5',this);renderSoliqlar()">🧾 Soliqlar</button>
   <button id="tab_t6" class="tab" onclick="showTab('t6',this);renderSolishtirish()">📊 Solishtirish</button>
   <button id="tab_tkun" class="tab" onclick="showTab('tkun',this);renderKunlik()">📆 Kunlik</button>
+  <button id="tab_tsv" class="tab" onclick="showTab('tsv',this);renderSavdoTahlil()">🛒 Savdo tahlili</button>
   <button id="tab_tgrafik" class="tab" onclick="showTab('tgrafik',this);renderGrafik()">🍩 Grafik tahlil</button>
   <button id="tab_xnom" class="tab" onclick="showTab('xnom',this);renderXnom()">💸 Xarajat (nom)</button>
   <button id="tab_t7" class="tab" onclick="showTab('t7',this);renderYakunlash()">🔒 Oy yakunlash</button>
@@ -1105,6 +1106,7 @@ function exportFullHtml(silent, customName, safe){
   <div id="kir" class="page"></div>
   <div id="t2" class="page"></div>
   <div id="tkun" class="page"></div>
+  <div id="tsv" class="page"></div>
   <div id="tkadr" class="page"></div>
   <div id="t2b" class="page"></div>
   <div id="t2b2" class="page"></div>
@@ -1596,6 +1598,9 @@ function cloudPullAll(cb,jim){
         try{ window.addEventListener('online',function(){syncRetry(1);}); }catch(e){}
         try{ setInterval(function(){ if(Object.keys(_DIRTY).length) syncRetry(1); },60000); }catch(e){}
         setTimeout(function(){ if(typeof kadrAuto==='function') kadrAuto(); }, 2500);
+        setTimeout(function(){ if(typeof savdoOl==='function') savdoOl(); }, 4000);
+        try{setInterval(function(){ if(typeof savdoOl==='function') savdoOl(); }, 600000);}catch(e){}
+        try{document.addEventListener('visibilitychange',function(){ if(!document.hidden&&typeof savdoOl==='function') savdoOl(); });}catch(e){}
         try{setInterval(function(){ if(typeof kadrAuto==='function') kadrAuto(); }, 300000);}catch(e){}
       }
     }
@@ -6781,9 +6786,9 @@ function renderEntry(){
   (E.magazin.days||[]).forEach(function(dd,di){
     mg+='<tr><td>'+_inp('magazin.days.'+di+'.kurs',dd.kurs,58,true)+'</td>'+
       '<td>'+_inp('magazin.days.'+di+'.sana',dd.sana,64,true)+'</td>';
-    MDC.forEach(function(c){mg+='<td>'+_inp('magazin.days.'+di+'.'+c[0],dd[c[0]],76)+'</td>';});
+    MDC.forEach(function(c){mg+='<td'+_svTd(dd,c[0])+'>'+_inp('magazin.days.'+di+'.'+c[0],dd[c[0]],76)+'</td>';});
     // M-T kunlik — yoziladigan (JAMI oylik songa qo'shiladi)
-    ['m','n','o','p','q','r','s','t'].forEach(function(mk){mg+='<td>'+_inp('magazin.days.'+di+'.'+mk,dd[mk],76)+'</td>';});
+    ['m','n','o','p','q','r','s','t'].forEach(function(mk){mg+='<td'+_svTd(dd,mk)+'>'+_inp('magazin.days.'+di+'.'+mk,dd[mk],76)+'</td>';});
     mg+='<td>'+_delBtn('magazin.days',di)+'</td></tr>';
   });
   // JAMI qatori
@@ -6801,6 +6806,11 @@ function renderEntry(){
   mg+='</tbody></table></div>'+_addBtn('magazin.days',{kurs:'',sana:'',c:0,d:0,e:0,f:0,g:0,h:0,i:0,j:0,k:0,l:0,hr_yech:0,m:0,n:0,o:0,p:0,q:0,r:0,s:0,t:0},'Kun qo\u2019shish');
   mg+='<div style="font-size:11px;color:#888;margin-top:6px">\ud83c\udfe7 <b>HR dan naqd yechildi</b> \u2014 bank hisob raqamidan naqd shaklida yechib olingan pul. <b>Naqdga qo\u2019shiladi</b>, hisob raqamdan ayiriladi (KLIK kabi \u2014 bu ko\u2019chirma, yangi kirim emas). Aksi: <b>HR naqd</b> ustuni \u2014 naqdni bankka topshirganda.</div>';
   mg+='<div style="font-size:11px;color:#888;margin-top:6px">JAMI qatoridagi <b>Magazin naqd, Karta, Payme1/2 (jami)</b> \u2014 terminal/kassa oylik hisobotidan. <b>HR birja</b> va <b>Tunikafon</b> shu yerda kiritiladi (aylanma varag\u2019idagidek). Yashil ustunlar kunlik yig\u2019indi (avtomatik). Magazin naqd, Karta, Payme, HR birja, Tunikafon ustunlarини kunlik yozsangiz ham bo\u2019ladi \u2014 JAMI qatoridagi oylik songa qo\u2019shiladi.</div>';
+  mg='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#EAF5EA;border:1px solid #b9dcb9;border-radius:8px;padding:8px 12px;margin-bottom:8px">'+
+    '<button onclick="savdoOl({qolda:1})" style="background:#1F7A3D;color:#fff;border:0;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer">\ud83d\udd04 Savdodan olish</button>'+
+    '<span id="svStat" style="font-size:12px;color:#375623">'+(window._svStatTxt||'Savdo tushumi har 10 daqiqada o\u2019zi yoziladi')+'</span>'+
+    '<span style="font-size:11px;color:#777;flex-basis:100%">Avtomatik: <b>Magazin naqd</b>, <b>Karta</b>, <b>Payme1</b>, <b>Payme2</b>, <b>Vazvrat</b>, <b>HR kirim</b> (bank) va <b>qarz to\u2019lovlari</b> (naqd/karta/payme). Siz qo\u2019lda o\u2019zgartirgan katak ustiga yozilmaydi \u2014 farq bo\u2019lsa ogohlantiradi. \ud83d\udfe2 \u2014 savdodan kelgan qiymat.</span>'+
+  '</div>'+mg;
   h+=_sec('\ud83c\udfea Magazin \u2014 kunlik (barcha ustunlar)',mg,true);
 
   // XARID — yangi kunlik varaq (ta'minotchi bilan bog'langan)
@@ -7179,6 +7189,192 @@ document.addEventListener('input',function(e){
   var _ai=document.getElementById('kirAuto');if(_ai){_ai.textContent='\u270f\ufe0f o\u2018zgardi\u2026';_ai.style.color='#a07a2a';}
   clearTimeout(window._autoT);window._autoT=setTimeout(autoSaveEntrySilent,2500);
 });
+/* ============ SAVDO → MOLIYA: kunlik tushum avtomatik ============
+   Server funksiyasi moliya_kunlik(p_from,p_to) har kun uchun hisoblar bo'yicha jami beradi
+   (KROFF Savdo / Billz cheklari va qarz to'lovlari). Bu yerda Magazin kunlik qatorlariga yoziladi.
+   Qoida: katak bo'sh/0 bo'lsa yoki oldin savdodan yozilgan qiymat turgan bo'lsa — yangilanadi;
+   foydalanuvchi qo'lda boshqa son yozgan bo'lsa — tegilmaydi, faqat "farq" deb ko'rsatiladi. */
+var _SV_MAP={m:function(r){return r.naqd;}, i:function(r){return r.vozvrat;}, n:function(r){return r.karta;},
+  o:function(r){return r.payme1;}, f:function(r){return (+r.payme2||0)+(+r.q_payme2||0);},
+  c:function(r){return (+r.bank||0)+(+r.q_bank||0);}, h:function(r){return r.q_naqd;},
+  g:function(r){return r.q_karta;}, e:function(r){return r.q_payme1;}};
+var _SV_NOM={m:'Magazin naqd',i:'Vazvrat',n:'Karta',o:'Payme1',f:'Payme2',c:'HR kirim',h:'Qarz (naqd)',g:'Qarz (karta)',e:'Xaridor payme1'};
+var _svLast={}, _svBusy=false;
+function _svTd(dd,k){return (dd&&dd._sv&&k in dd._sv&&Number(dd[k]||0)===Number(dd._sv[k]||0)&&Number(dd[k]||0)!==0)?' style="background:#D8F0D8" title="Savdodan avtomatik"':'';}
+function _svR(v){return Math.round((Number(v)||0)*100)/100;}
+function _svSana(iso){var p=String(iso).split('-');return p[2]+'.'+p[1]+'.'+p[0];}
+function _svStat(t,c){window._svStatTxt=t;var el=document.getElementById('svStat');if(el){el.textContent=t;el.style.color=c||'#375623';}}
+function _svApply(raw,rows,y,m,force){
+  if(!raw.magazin)raw.magazin={};if(!raw.magazin.days)raw.magazin.days=[];
+  var days=raw.magazin.days, res={upd:0,kun:0,yangi:0,farq:[]};
+  rows.forEach(function(r){
+    var sana=_svSana(r.kun), dd=null;
+    for(var i=0;i<days.length;i++){if(_normSana(days[i].sana,y,m)===sana){dd=days[i];break;}}
+    if(!dd){
+      dd={kurs:'',sana:sana,c:0,d:0,e:0,f:0,g:0,h:0,i:0,j:0,k:0,l:0,hr_yech:0,m:0,n:0,o:0,p:0,q:0,r:0,s:0,t:0};
+      var at=days.length;for(var j=0;j<days.length;j++){var sj=_normSana(days[j].sana,y,m);if(/^\d\d\.\d\d\.\d{4}$/.test(sj)&&sj.split('.').reverse().join('')>sana.split('.').reverse().join('')){at=j;break;}}
+      days.splice(at,0,dd);res.yangi++;
+    }
+    var sv=dd._sv||{}, ch=0;
+    Object.keys(_SV_MAP).forEach(function(k){
+      var nv=_svR(_SV_MAP[k](r)), cur=_svR(dd[k]);
+      if(cur===nv){sv[k]=nv;return;}
+      var bizniki=(cur===0)||(k in sv&&cur===_svR(sv[k]));
+      if(bizniki||force){dd[k]=nv;sv[k]=nv;ch++;}
+      else res.farq.push({sana:sana,k:k,qolda:cur,savdo:nv});
+    });
+    dd._sv=sv;dd._svq={chek:r.chek,jami:_svR(r.jami),qarzga:_svR(r.qarzga)};
+    if(ch){res.upd+=ch;res.kun++;}
+  });
+  return res;
+}
+function _svCommit(y,oi,raw){
+  var d=computeFromRaw(raw),old=(DB[y]&&DB[y][oi])||{},nd={};
+  if(!DB[y])DB[y]={};
+  for(var k in old)nd[k]=old[k];
+  for(var k2 in d){var v=d[k2];if(Array.isArray(v)&&v.length===0&&Array.isArray(old[k2])&&old[k2].length>0)continue;nd[k2]=v;}
+  nd.fayl=old.fayl||('Qo’lda kiritildi ('+_OYNM[oi]+' '+y+')');
+  nd.sana=new Date().toLocaleDateString('ru-RU');
+  nd._raw=JSON.parse(JSON.stringify(raw));
+  DB[y][oi]=nd;save();try{_stamp(y,oi);}catch(e){}
+  try{render();}catch(e){}
+  try{cloudPushMonth(y,oi);}catch(e){}
+}
+function _svFarqHtml(f){
+  var h='<div style="font-size:13px;margin-bottom:8px">Bu kataklarga siz <b>qo’lda</b> boshqa son yozgansiz, shuning uchun ular <b>o’zgartirilmadi</b>:</div>'+
+    '<table style="font-size:12px;border-collapse:collapse;width:100%"><tr style="background:#1F4E79;color:#fff"><th style="padding:4px">Sana</th><th>Ustun</th><th>Qo’lda</th><th>Savdoda</th><th>Farq</th></tr>';
+  f.forEach(function(x){h+='<tr style="border-bottom:1px solid #eee"><td style="padding:3px 6px">'+x.sana+'</td><td>'+_SV_NOM[x.k]+'</td><td style="text-align:right">'+fmt(x.qolda)+'</td><td style="text-align:right">'+fmt(x.savdo)+'</td><td style="text-align:right;color:'+(x.savdo-x.qolda<0?'#c00':'#1F7A3D')+'">'+fmt(x.savdo-x.qolda)+'</td></tr>';});
+  return h+'</table><div style="margin-top:10px"><button onclick="savdoOl({qolda:1,force:1});var o=document.getElementById(\'svFarqOv\');if(o)o.remove();" style="background:#C00000;color:#fff;border:0;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer">Hammasini savdodagi bilan almashtirish</button> <span style="font-size:11px;color:#777">yoki o’zingiz to’g’rilang</span></div>';
+}
+function _svFarqShow(f){
+  var o=document.getElementById('svFarqOv');if(o)o.remove();
+  o=document.createElement('div');o.id='svFarqOv';
+  o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  o.innerHTML='<div style="background:#fff;border-radius:10px;max-width:640px;width:100%;max-height:85vh;overflow:auto;padding:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="color:#1F4E79">⚠️ Savdo bilan farq</b><button onclick="this.closest(\'#svFarqOv\').remove()" style="border:0;background:none;font-size:20px;cursor:pointer">✕</button></div>'+_svFarqHtml(f)+'</div>';
+  o.addEventListener('click',function(e){if(e.target===o)o.remove();});
+  document.body.appendChild(o);
+}
+function savdoOl(opt){
+  opt=opt||{};
+  if(_svBusy)return;
+  var now=new Date(), y=String(opt.y||now.getFullYear()), m=opt.m||(now.getMonth()+1), oi=m-1;
+  var key=y+'-'+m;
+  if(!opt.qolda&&Date.now()-(_svLast[key]||0)<540000)return;
+  var ent=(ENTRY&&String(ENTRY.year)===y&&Number(ENTRY.month)===m);
+  if(opt.qolda&&ENTRY){y=String(ENTRY.year);m=Number(ENTRY.month);oi=m-1;key=y+'-'+m;ent=true;}
+  var raw=ent?ENTRY:(DB[y]&&DB[y][oi]&&DB[y][oi]._raw);
+  if(!raw){if(opt.qolda)_svStat('Avval shu oyni Kiritishda oching','#8a1f1f');return;}
+  var mm=('0'+m).slice(-2), last=new Date(+y,m,0).getDate();
+  _svBusy=true;_svLast[key]=Date.now();_svStat('⏳ Savdodan olinyapti...','#555');
+  fetch(SB_URL+'/rest/v1/rpc/moliya_kunlik',{method:'POST',headers:_sbHdr(),body:JSON.stringify({p_from:y+'-'+mm+'-01',p_to:y+'-'+mm+'-'+last})})
+    .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error('HTTP '+r.status+' '+t.slice(0,120));});return r.json();})
+    .then(function(rows){
+      _svBusy=false;
+      if(!Array.isArray(rows))rows=[];
+      var res=_svApply(raw,rows,y,m,!!opt.force);
+      try{_svXq(raw,rows,!!opt.force,res);}catch(e){console.error('svXq',e);}
+      if(_stD&&_stD._k===y+'-'+m)_stD=null;
+      var vaqt=new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+      var t='✅ '+vaqt+' · '+rows.length+' kun savdo'+(res.upd?' · '+res.kun+' kun yangilandi':' · o’zgarish yo’q')+(res.farq.length?' · ⚠️ '+res.farq.length+' ta farq':'');
+      if(res.upd||res.yangi){
+        if(ent){
+          var ae=document.activeElement, yozyapti=ae&&ae.tagName==='INPUT'&&ae.closest&&ae.closest('#kir');
+          try{autoSaveEntrySilent();}catch(e){}
+          if(!yozyapti){try{renderEntry();}catch(e){}}
+        } else _svCommit(y,oi,raw);
+      }
+      _svStat(t,res.farq.length?'#9C5700':'#375623');
+      if(res.farq.length&&opt.qolda)_svFarqShow(res.farq);
+    })
+    .catch(function(e){_svBusy=false;
+      var msg=String(e&&e.message||e);
+      _svStat(/moliya_kunlik|PGRST202|404/.test(msg)?'⚠️ Serverda moliya_kunlik yo’q — moliya_savdo.sql ni ishga tushiring':'⚠️ Savdoga ulanmadi: '+msg.slice(0,60),'#8a1f1f');
+    });
+}
+/* ---- Xaridorlar qarzi (oy jami) savdodan: + qarzga sotildi, − to'landi ---- */
+function _svXq(raw,rows,force,res){
+  var yangi=0,tol=0;
+  rows.forEach(function(r){yangi+=(+r.mq_yangi||0);tol+=(+r.q_naqd||0)+(+r.q_karta||0)+(+r.q_payme1||0)+(+r.q_payme2||0)+(+r.q_bank||0);});
+  if(!raw.xaridor_qarz)raw.xaridor_qarz={oldingi:0,yangi:0,tolandi:0};
+  var xq=raw.xaridor_qarz, sv=xq._sv||{}, nv={yangi:_svR(yangi),tolandi:_svR(tol)};
+  ['yangi','tolandi'].forEach(function(k){
+    var cur=_svR(xq[k]);
+    if(cur===nv[k]){sv[k]=nv[k];return;}
+    if(cur===0||(k in sv&&cur===_svR(sv[k]))||force){xq[k]=nv[k];sv[k]=nv[k];res.upd++;}
+    else res.farq.push({sana:'oy jami',k:'xq_'+k,qolda:cur,savdo:nv[k]});
+  });
+  xq._sv=sv;
+}
+_SV_NOM.xq_yangi='Xaridor: qarzga sotildi';_SV_NOM.xq_tolandi='Xaridor: to’landi';
+
+/* ============ 🛒 SAVDO TAHLILI: tannarx, foyda, sotuvchilar foizi (faqat hisobot) ============ */
+var _stY=null,_stM=null,_stD=null,_stBusy=false;
+function _stFoiz(){var v=parseFloat(String((SOZ&&SOZ.sotuv_foiz)||'').replace(',','.'));return isFinite(v)?v:0;}
+function stFoizSet(v){
+  v=parseFloat(String(v).replace(',','.'));if(!isFinite(v)||v<0)v=0;
+  SOZ.sotuv_foiz=v;try{localStorage.setItem('moliya_soz',JSON.stringify(SOZ));}catch(e){}
+  _stDraw();
+}
+function stOy(d){var y=+_stY,m=+_stM+d;if(m<1){m=12;y--;}if(m>12){m=1;y++;}_stY=y;_stM=m;_stD=null;renderSavdoTahlil();}
+function renderSavdoTahlil(){
+  var el=document.getElementById('tsv');if(!el)return;
+  if(!_stY){var n=new Date();_stY=n.getFullYear();_stM=n.getMonth()+1;}
+  if(_stD&&_stD._k===_stY+'-'+_stM){_stDraw();return;}
+  el.innerHTML='<div style="padding:30px;color:#888">⏳ Savdodan olinyapti...</div>';
+  if(_stBusy)return;_stBusy=true;
+  var mm=('0'+_stM).slice(-2),last=new Date(_stY,_stM,0).getDate(),k=_stY+'-'+_stM;
+  fetch(SB_URL+'/rest/v1/rpc/moliya_savdo_tahlil',{method:'POST',headers:_sbHdr(),body:JSON.stringify({p_from:_stY+'-'+mm+'-01',p_to:_stY+'-'+mm+'-'+last})})
+    .then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error('HTTP '+r.status+' '+t.slice(0,120));});return r.json();})
+    .then(function(d){_stBusy=false;_stD=d||{};_stD._k=k;_stD._t=new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});_stDraw();})
+    .catch(function(e){_stBusy=false;var msg=String(e&&e.message||e);
+      el.innerHTML='<div style="padding:24px;color:#8a1f1f">'+(/moliya_savdo_tahlil|PGRST202|404/.test(msg)?'⚠️ Serverda moliya_savdo_tahlil yo’q — <b>moliya_savdo.sql</b> ni Supabase’da ishga tushiring.':'⚠️ Savdoga ulanmadi: '+msg.slice(0,100))+
+        '<br><br><button onclick="_stD=null;renderSavdoTahlil()" style="padding:6px 14px;border-radius:6px;border:1px solid #1F4E79;background:#fff;color:#1F4E79;cursor:pointer">Qayta urinish</button></div>';});
+}
+function _stDraw(){
+  var el=document.getElementById('tsv');if(!el||!_stD)return;
+  var d=_stD,K=d.kunlar||[],S=d.sotuvchi||[],Z=d.zarar||[],fz=_stFoiz();
+  var f=function(n){n=Math.round(+n||0);return n?n.toLocaleString('ru-RU'):'<span style="color:#ccc">0</span>';};
+  var pc=function(a,b){return b?(Math.round(a/b*1000)/10)+'%':'—';};
+  var T={chek:0,jami:0,vozvrat:0,tannarx:0,foyda:0,qarzga:0,bolimga:0,qarz_qaytdi:0};
+  K.forEach(function(r){for(var k in T)T[k]+=(+r[k]||0);});
+  var sotF=0;S.forEach(function(s){sotF+=Math.max(0,+s.summa||0)*fz/100;});
+  var th='padding:6px 8px;text-align:right;white-space:nowrap',td='padding:5px 8px;text-align:right;white-space:nowrap';
+  var card=function(t,v,c,sub){return '<div style="flex:1 1 150px;background:#fff;border:1px solid #e3e8ef;border-radius:10px;padding:10px 12px"><div style="font-size:11px;color:#667">'+t+'</div><div style="font-size:18px;font-weight:700;color:'+(c||'#1F4E79')+'">'+v+'</div>'+(sub?'<div style="font-size:11px;color:#889">'+sub+'</div>':'')+'</div>';};
+  var h='<h2 style="font-size:17px;color:#1F4E79;margin:0 0 10px">🛒 Savdo tahlili <span style="font-size:12px;color:#888;font-weight:400">— KROFF Savdo’dan, faqat hisobot (pulga ta’sir qilmaydi)</span></h2>';
+  h+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">'+
+     '<button onclick="stOy(-1)" style="padding:5px 12px;border-radius:16px;border:1.5px solid #ddd;background:#fff;cursor:pointer">◀</button>'+
+     '<b style="min-width:120px;text-align:center">'+(typeof OY!=='undefined'?OY[_stM-1]:_stM)+' '+_stY+'</b>'+
+     '<button onclick="stOy(1)" style="padding:5px 12px;border-radius:16px;border:1.5px solid #ddd;background:#fff;cursor:pointer">▶</button>'+
+     '<button onclick="_stD=null;renderSavdoTahlil()" style="padding:5px 12px;border-radius:16px;border:1.5px solid #1F4E79;background:#1F4E79;color:#fff;cursor:pointer">🔄 Yangilash</button>'+
+     '<span style="font-size:11px;color:#888">olindi '+(d._t||'')+'</span></div>';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'+
+     card('Savdo (vozvrat ayirilgan)',f(T.jami),null,T.chek+' chek · vozvrat '+f(T.vozvrat))+
+     card('Tannarx (kelish narxi)',f(T.tannarx),'#7a4b00')+
+     card('Yalpi foyda',f(T.foyda),T.foyda<0?'#C00000':'#1F7A3D','marja '+pc(T.foyda,T.jami))+
+     card('Sotuvchilar foizi ('+fz+'%)',f(sotF),'#6a3d9a','foydadan keyin: '+f(T.foyda-sotF))+
+     card('Mijozlarga qarzga',f(T.qarzga),'#C00000','bo’limlarga: '+f(T.bolimga))+
+     card('Qarzdan qaytdi',f(T.qarz_qaytdi),'#1F7A3D','sof: '+f(T.qarzga-T.qarz_qaytdi))+'</div>';
+  if(d.xaridsiz&&+d.xaridsiz.soni)h+='<div style="font-size:12px;color:#9C5700;margin:-6px 0 12px">⚠️ '+d.xaridsiz.soni+' ta sotilgan tovarning kelish narxi 0 (jami '+f(d.xaridsiz.summa)+') — ularning foydasi oshib ko’rinadi.</div>';
+  // Sotuvchilar
+  h+='<h3 style="font-size:14px;color:#1F4E79;margin:4px 0 6px">👤 Sotuvchilar</h3>'+
+     '<div style="font-size:12px;margin-bottom:6px">Foiz (sotgan summasidan, hammaga bir xil): <input type="number" step="0.1" min="0" value="'+fz+'" onchange="stFoizSet(this.value)" style="width:70px;padding:3px 6px;border:1px solid #ccc;border-radius:5px"> %</div>';
+  h+='<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:620px"><thead><tr style="background:#1F4E79;color:#fff"><th style="padding:6px 8px;text-align:left">Sotuvchi</th><th style="'+th+'">Chek</th><th style="'+th+'">Sotgan summa</th><th style="'+th+'">Foiz '+fz+'%</th><th style="'+th+'">Tannarx</th><th style="'+th+'">Foyda</th><th style="'+th+'">Marja</th></tr></thead><tbody>';
+  var ss={chek:0,summa:0,tannarx:0,foyda:0,fz:0};
+  S.forEach(function(s,i){var sf=Math.max(0,+s.summa||0)*fz/100;ss.chek+=+s.chek||0;ss.summa+=+s.summa||0;ss.tannarx+=+s.tannarx||0;ss.foyda+=+s.foyda||0;ss.fz+=sf;
+    h+='<tr style="background:'+(i%2?'#f7f9fc':'#fff')+'"><td style="padding:5px 8px">'+String(s.nom||'—').replace(/</g,'&lt;')+'</td><td style="'+td+'">'+(s.chek||0)+'</td><td style="'+td+';font-weight:600">'+f(s.summa)+'</td><td style="'+td+';color:#6a3d9a;font-weight:600">'+f(sf)+'</td><td style="'+td+'">'+f(s.tannarx)+'</td><td style="'+td+';color:'+(s.foyda<0?'#C00000':'#1F7A3D')+'">'+f(s.foyda)+'</td><td style="'+td+'">'+pc(s.foyda,s.summa)+'</td></tr>';});
+  h+='<tr style="background:#E8EEF6;font-weight:700"><td style="padding:6px 8px">JAMI</td><td style="'+td+'">'+ss.chek+'</td><td style="'+td+'">'+f(ss.summa)+'</td><td style="'+td+';color:#6a3d9a">'+f(ss.fz)+'</td><td style="'+td+'">'+f(ss.tannarx)+'</td><td style="'+td+'">'+f(ss.foyda)+'</td><td style="'+td+'">'+pc(ss.foyda,ss.summa)+'</td></tr></tbody></table></div>';
+  // Kunlik
+  h+='<h3 style="font-size:14px;color:#1F4E79;margin:16px 0 6px">📅 Kunlik</h3><div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:860px"><thead><tr style="background:#375623;color:#fff"><th style="padding:6px 8px;text-align:left">Kun</th><th style="'+th+'">Chek</th><th style="'+th+'">Savdo</th><th style="'+th+'">Vozvrat</th><th style="'+th+'">Tannarx</th><th style="'+th+'">Foyda</th><th style="'+th+'">Marja</th><th style="'+th+'">Qarzga (mijoz)</th><th style="'+th+'">Bo’limga</th><th style="'+th+'">Qarzdan qaytdi</th></tr></thead><tbody>';
+  K.forEach(function(r,i){h+='<tr style="background:'+(i%2?'#f7faf4':'#fff')+'"><td style="padding:5px 8px">'+_svSana(r.kun)+'</td><td style="'+td+'">'+(r.chek||0)+'</td><td style="'+td+';font-weight:600">'+f(r.jami)+'</td><td style="'+td+';color:#C00000">'+f(r.vozvrat)+'</td><td style="'+td+'">'+f(r.tannarx)+'</td><td style="'+td+';color:'+(r.foyda<0?'#C00000':'#1F7A3D')+';font-weight:600">'+f(r.foyda)+'</td><td style="'+td+'">'+pc(r.foyda,r.jami)+'</td><td style="'+td+'">'+f(r.qarzga)+'</td><td style="'+td+'">'+f(r.bolimga)+'</td><td style="'+td+'">'+f(r.qarz_qaytdi)+'</td></tr>';});
+  h+='<tr style="background:#E2EFDA;font-weight:700"><td style="padding:6px 8px">JAMI</td><td style="'+td+'">'+T.chek+'</td><td style="'+td+'">'+f(T.jami)+'</td><td style="'+td+'">'+f(T.vozvrat)+'</td><td style="'+td+'">'+f(T.tannarx)+'</td><td style="'+td+'">'+f(T.foyda)+'</td><td style="'+td+'">'+pc(T.foyda,T.jami)+'</td><td style="'+td+'">'+f(T.qarzga)+'</td><td style="'+td+'">'+f(T.bolimga)+'</td><td style="'+td+'">'+f(T.qarz_qaytdi)+'</td></tr></tbody></table></div>';
+  // Zarar
+  h+='<h3 style="font-size:14px;color:#C00000;margin:16px 0 6px">📉 Tannarxdan arzon sotilgan tovarlar ('+Z.length+')</h3>';
+  if(!Z.length)h+='<div style="font-size:12px;color:#1F7A3D">Yo’q ✅</div>';
+  else{h+='<div style="overflow:auto;max-height:420px"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px"><thead><tr style="background:#C00000;color:#fff"><th style="padding:6px 8px;text-align:left">Tovar</th><th style="'+th+'">Soni</th><th style="'+th+'">Sotildi</th><th style="'+th+'">Tannarx</th><th style="'+th+'">Zarar</th></tr></thead><tbody>';
+    var zs=0;Z.forEach(function(z,i){zs+=+z.zarar||0;h+='<tr style="background:'+(i%2?'#fdf3f3':'#fff')+'"><td style="padding:5px 8px">'+String(z.nom||'').replace(/</g,'&lt;')+'</td><td style="'+td+'">'+(Math.round((+z.qty||0)*1000)/1000)+'</td><td style="'+td+'">'+f(z.tushum)+'</td><td style="'+td+'">'+f(z.tannarx)+'</td><td style="'+td+';color:#C00000;font-weight:600">'+f(z.zarar)+'</td></tr>';});
+    h+='<tr style="background:#F8DADA;font-weight:700"><td style="padding:6px 8px" colspan="4">JAMI zarar</td><td style="'+td+'">'+f(zs)+'</td></tr></tbody></table></div><div style="font-size:11px;color:#888;margin-top:4px">Kelish narxi xato kiritilgan bo’lishi ham mumkin — katta zararlarni tovar kartasida tekshiring.</div>';}
+  el.innerHTML=h;
+}
 var _autoSaveOn=true;
 function autoSaveEntrySilent(){
   try{
