@@ -187,7 +187,7 @@ tr.sof td.q-val{background:#375623;color:#fff;font-size:14px}
 #xkRoot{padding-bottom:78px}
 #xkRoot h1, #xkRoot h2, #xkRoot h3{margin:0}
 #xkRoot button{font-family:inherit;font-size:15px;cursor:pointer;border:0}
-#xkRoot input, #xkRoot select, #xkRoot textarea{font-family:inherit;font-size:15px;width:100%;padding:11px 12px;
+#xkRoot input, #xkRoot select, #xkRoot textarea{font-family:inherit;font-size:16px;width:100%;padding:11px 12px;
   background:var(--card2);border:1px solid var(--line);border-radius:10px;color:var(--tx);outline:none}
 #xkRoot input:focus, #xkRoot select:focus, #xkRoot textarea:focus{border-color:var(--acc)}
 #xkRoot label{display:block;font-size:12px;color:var(--tx2);margin:10px 0 5px}
@@ -208,8 +208,12 @@ tr.sof td.q-val{background:#375623;color:#fff;font-size:14px}
 #xkRoot .btn:disabled{opacity:.45}
 #xkRoot .btn.sm{width:auto;padding:8px 12px;font-size:13px;border-radius:9px}
 #xkRoot .row{display:flex;gap:8px;align-items:center}
-#xkRoot .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-#xkRoot .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+#xkRoot .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+#xkRoot .grid2>div,#xkRoot .grid3>div{min-width:0}
+#xkRoot .sheet{overflow-x:hidden;overscroll-behavior:contain}
+#xkRoot{overflow-x:hidden;touch-action:pan-y}
+#xkRoot input[type=date]{-webkit-appearance:none;appearance:none;min-width:0;max-width:100%;display:block;min-height:46px;background:var(--card2,#fff)}
+#xkRoot .grid3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:8px}
 #xkRoot .stat{background:var(--card2);border-radius:11px;padding:11px}
 #xkRoot .stat b{display:block;font-size:19px;font-weight:700;margin-bottom:2px}
 #xkRoot .stat i{font-style:normal;font-size:11px;color:var(--tx2)}
@@ -8187,10 +8191,21 @@ function tunSave(id,del){
 var _XM_KERAK=[['pasport_seriya','Pasport seriyasi'],['pasport_raqam','Pasport raqami'],['jshshir','JSHSHIR'],['tugilgan','Tug‘ilgan sana'],['manzil','Manzil'],['tel','Telefon'],['rasm_bor','Pasport surati']];
 var _XM={}, _XM_RASM=null;
 function _xmToliq(m){return _XM_KERAK.every(function(k){return !!(m&&m[k[0]]);});}
+/* Rahbar (yoki rahbar qurilmasida "o'zini o'tkazgan") uchun majburiy emas.
+   Xodim: "Keyinroq" — 1 kunga, ko'pi bilan 3 marta; keyin to'ldirmaguncha ochilmaydi. */
+function _xmKech(){try{return JSON.parse(localStorage.getItem('xm_kech_'+XME.id)||'{"n":0,"t":0}');}catch(e){return {n:0,t:0};}}
+function xmKeyinroq(){
+  if(!_xmIxtiyoriy()){var k=_xmKech();k.n=(k.n||0)+1;k.t=Date.now();try{localStorage.setItem('xm_kech_'+XME.id,JSON.stringify(k));}catch(e){}}
+  window._xmMajbur=false; closeSheet();
+}
+function _xmIxtiyoriy(){try{return _xkBossNow();}catch(e){return false;}}
 function xmTekshir(){
   if(!XME) return;
   sbRpc('xodim_malumot_mening',{p_xodim:XME.id,p_pin:String(XME.pin||'1234')}).then(function(m){
-    _XM=m||{}; if(!_xmToliq(_XM)) xmForm(true);
+    _XM=m||{}; if(_xmToliq(_XM)) return;
+    if(_xmIxtiyoriy()) return;                       // rahbar o'zi bo'lsa avtomatik ochilmaydi
+    var k=_xmKech(); if(k.t&&Date.now()-k.t<86400000) return;   // bugun "keyinroq" deyilgan
+    xmForm(true);
   }).catch(function(){ /* jadval yo'q yoki internet yo'q — bloklamaymiz */ });
 }
 function xmForm(majbur){
@@ -8209,7 +8224,8 @@ function xmForm(majbur){
     '<label>Pasport surati '+(m.rasm_bor?'<span class="pill p-ok">yuklangan</span>':'')+'</label>'+
     '<input id="xm_rasm" type="file" accept="image/*" capture="environment" onchange="_xmRasm(this)"><div id="xmRasmH" class="mut"></div>'+
     '<div style="height:14px"></div><button class="btn" onclick="xmSave()">Saqlash</button>'+
-    (majbur?'':'<div style="height:8px"></div><button class="btn g" onclick="closeSheet()">Yopish</button>'));
+    (majbur?((_xmIxtiyoriy()||(_xmKech().n||0)<3)?'<div style="height:8px"></div><button class="btn g" onclick="xmKeyinroq()">Keyinroq to‘ldiraman'+(_xmIxtiyoriy()?'':' ('+(3-(_xmKech().n||0))+' marta qoldi)')+'</button>':'')
+           :'<div style="height:8px"></div><button class="btn g" onclick="closeSheet()">Yopish</button>'));
 }
 function _xmRasm(inp){
   var f=inp.files&&inp.files[0]; if(!f) return; x$('xmRasmH').textContent='Tayyorlanmoqda…';
