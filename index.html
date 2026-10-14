@@ -5886,12 +5886,18 @@ function computeFromRaw(raw){
   var qarzQol=_qzOf('magazin',magE)+_qzOf('tunikafon',tunE)+_qzOf('penablok',penE)+_qzOf('birja',birE);
   // MAGAZIN kirim
   var qarz_naqd=_S(d,'h'),klik=_S(d,'l'),vazvrat=_S(d,'i'),hr_naqd=_S(d,'k'),hr_yech=_S(d,'hr_yech');
-  var C10=mM+qarz_naqd+klik+hr_yech-vazvrat-hr_naqd;
+  /* Savdodan kelgan Vazvrat — Billz'dagidek JAMI qaytarish. Uning naqd bo'lmagan qismi (karta/Payme/HR orqali
+     qaytarilgan yoki mijoz qarzidan ayirilgan) naqd kassadan ayirilmaydi — o'z hisobidan ayiriladi. */
+  var vz={karta:0,payme1:0,payme2:0,bank:0,boshqa:0};
+  (d||[]).forEach(function(x){if(!x||!x._svi||!x._sv||!('i' in x._sv))return;var q=x._svi;
+    vz.karta+=_svR(q.karta);vz.payme1+=_svR(q.payme1);vz.payme2+=_svR(q.payme2);vz.bank+=_svR(q.bank);
+    vz.boshqa+=_svR(x._sv.i)-_svR(q.naqd);});
+  var C10=mM+qarz_naqd+klik+hr_yech-(vazvrat-vz.boshqa)-hr_naqd;
   var payme1_E=_S(d,'e');
-  var C15=payme1_E+mO-klik;
-  var C18=_S(d,'f');
+  var C15=payme1_E+mO-klik-vz.payme1;
+  var C18=_S(d,'f')-vz.payme2;
   var hr_kirim=_S(d,'c');
-  var C22=mN+hr_kirim+_S(d,'g')-hr_yech;
+  var C22=mN+hr_kirim+_S(d,'g')-hr_yech-vz.karta-vz.bank;
   var qdq_k=_S(d,'d'), qdq_ch=-x_qarzdan, C26=qdq_k+qdq_ch;
   var C27=C10+C15+C18+C22+C26;
   // penablok chiqim (ma'lumot)
@@ -7210,7 +7216,8 @@ var _svLast={}, _svBusy=false;
 function _svTd(dd,k){
   if(!(dd&&dd._sv&&k in dd._sv))return '';
   var v=Number(dd[k]||0),sv=Number(dd._sv[k]||0);
-  if(v===sv) return v!==0?' style="background:#D8F0D8" title="Savdodan avtomatik"':'';
+  var _vt='';if(k==='i'&&dd._svi){var q=dd._svi;_vt=' · naqd '+fmt(q.naqd)+(q.karta?', karta '+fmt(q.karta):'')+(q.payme1?', Payme1 '+fmt(q.payme1):'')+(q.payme2?', Payme2 '+fmt(q.payme2):'')+(q.bank?', HR '+fmt(q.bank):'')+(q.qarz?', qarzdan '+fmt(q.qarz):'');}
+  if(v===sv) return v!==0?' style="background:#D8F0D8" title="Savdodan avtomatik'+_vt+'"':'';
   return ' style="background:#FFF2CC" title="Savdodan: '+fmt(sv)+' + qo‘lda: '+fmt(v-sv)+'"';
 }
 function _svR(v){return Math.round(Number(v)||0);} // butun so‘m (kasr kataklarda noto‘g‘ri ko‘rinardi)
@@ -7239,6 +7246,11 @@ function _svApply(raw,rows,y,m,force){
       res.farq.push({sana:sana,k:k,qolda:cur,savdo:nv});
     });
     dd._sv=sv;dd._svq={chek:r.chek,jami:_svR(r.jami),qarzga:_svR(r.qarzga)};
+    // Vazvrat jami Billz'dagidek; qaysi hisobdan pul qaytgani alohida (kassa qoldig'i uchun)
+    if('voz_naqd' in r){var _vi={naqd:_svR(r.voz_naqd),karta:_svR(r.voz_karta),payme1:_svR(r.voz_payme1),payme2:_svR(r.voz_payme2),bank:_svR(r.voz_bank)};
+      _vi.qarz=Math.max(0,_svR(r.vozvrat)-_vi.naqd-_vi.karta-_vi.payme1-_vi.payme2-_vi.bank);
+      if(JSON.stringify(dd._svi||null)!==JSON.stringify(_vi)){dd._svi=_vi;ch++;}}
+    else if(dd._svi){delete dd._svi;ch++;}
     if(ch){res.upd+=ch;res.kun++;}
   });
   return res;
@@ -7256,10 +7268,32 @@ function _svCommit(y,oi,raw){
   try{cloudPushMonth(y,oi);}catch(e){}
 }
 function _svFarqHtml(f){
-  var h='<div style="font-size:13px;margin-bottom:8px">Bu kataklarga siz <b>qo’lda</b> boshqa son yozgansiz, shuning uchun ular <b>o’zgartirilmadi</b>:</div>'+
-    '<table style="font-size:12px;border-collapse:collapse;width:100%"><tr style="background:#1F4E79;color:#fff"><th style="padding:4px">Sana</th><th>Ustun</th><th>Qo’lda</th><th>Savdoda</th><th>Farq</th></tr>';
-  f.forEach(function(x){h+='<tr style="border-bottom:1px solid #eee"><td style="padding:3px 6px">'+x.sana+'</td><td>'+_SV_NOM[x.k]+'</td><td style="text-align:right">'+fmt(x.qolda)+'</td><td style="text-align:right">'+fmt(x.savdo)+'</td><td style="text-align:right;color:'+(x.savdo-x.qolda<0?'#c00':'#1F7A3D')+'">'+fmt(x.savdo-x.qolda)+'</td></tr>';});
-  return h+'</table><div style="margin-top:10px"><button onclick="savdoOl({qolda:1,force:1});var o=document.getElementById(\'svFarqOv\');if(o)o.remove();" style="background:#C00000;color:#fff;border:0;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer">Hammasini savdodagi bilan almashtirish</button> <span style="font-size:11px;color:#777">yoki o’zingiz to’g’rilang</span></div>';
+  window._svFarqL=f;
+  var MK=function(k){return /^[a-z_]+$/.test(k)&&(k in _SV_MAP);};
+  var h='<div style="font-size:13px;margin-bottom:8px">Bu kataklar savdo ulanishidan <b>oldin qo’lda</b> yozilgan va savdodagidan farq qiladi. Har biri uchun tanlang:<br>'+
+    '<span style="font-size:12px;color:#555">• <b>Savdodagi</b> — savdodagi son qo’yiladi (qo’lda yozilgani o’chadi).<br>• <b>Qo’lda qolsin</b> — sizning soningiz qoladi, farqi “qo’lda qo’shilgan” deb hisoblanadi; keyin savdo o’zgarsa ustiga qo’shiladi (🟡).</span></div>'+
+    '<table style="font-size:12px;border-collapse:collapse;width:100%"><tr style="background:#1F4E79;color:#fff"><th style="padding:4px">Sana</th><th>Ustun</th><th>Qo’lda</th><th>Savdoda</th><th>Farq</th><th></th></tr>';
+  f.forEach(function(x,i){h+='<tr style="border-bottom:1px solid #eee" id="svfq'+i+'"><td style="padding:3px 6px">'+x.sana+'</td><td>'+_SV_NOM[x.k]+'</td><td style="text-align:right">'+fmt(x.qolda)+'</td><td style="text-align:right">'+fmt(x.savdo)+'</td><td style="text-align:right;color:'+(x.savdo-x.qolda<0?'#c00':'#1F7A3D')+'">'+fmt(x.savdo-x.qolda)+'</td>'+
+    '<td style="white-space:nowrap;padding:2px 4px">'+(MK(x.k)?'<button onclick="svFarqHal(['+i+'],\'savdo\')" style="font-size:11px;padding:2px 6px;border:1px solid #1F4E79;background:#fff;color:#1F4E79;border-radius:4px;cursor:pointer">Savdodagi</button> <button onclick="svFarqHal(['+i+'],\'qolda\')" style="font-size:11px;padding:2px 6px;border:1px solid #9C5700;background:#fff;color:#9C5700;border-radius:4px;cursor:pointer">Qo’lda qolsin</button>':'<span style="font-size:10px;color:#999">jadvalda tuzating</span>')+'</td></tr>';});
+  var all=f.map(function(x,i){return MK(x.k)?i:-1;}).filter(function(i){return i>=0;});
+  return h+'</table><div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">'+
+    '<button onclick="svFarqHal(['+all.join(',')+'],\'qolda\')" style="background:#9C5700;color:#fff;border:0;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer">Hammasi qo’lda qolsin</button>'+
+    '<button onclick="svFarqHal(['+all.join(',')+'],\'savdo\')" style="background:#1F4E79;color:#fff;border:0;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer">Hammasini savdodagi bilan</button></div>';
+}
+/* Farqni hal qilish: 'savdo' — savdodagi son; 'qolda' — qo'lda yozilgani qoladi, farqi qo'shimcha bo'ladi */
+function svFarqHal(ids,mode){
+  var f=window._svFarqL||[], ent=!!ENTRY, y=ent?String(ENTRY.year):null, m=ent?Number(ENTRY.month):null;
+  var raw=ENTRY; if(!raw){toast&&toast('Avval Kiritishni oching');return;}
+  var days=(raw.magazin&&raw.magazin.days)||[], n=0;
+  ids.forEach(function(i){var x=f[i];if(!x||x._hal)return;
+    var dd=null;for(var j=0;j<days.length;j++){if(_normSana(days[j].sana,y,m)===x.sana){dd=days[j];break;}}
+    if(!dd)return; if(!dd._sv)dd._sv={};
+    if(mode==='savdo')dd[x.k]=x.savdo;
+    dd._sv[x.k]=x.savdo; x._hal=1; n++;
+    var tr=document.getElementById('svfq'+i); if(tr){tr.style.opacity='.4';var c=tr.lastChild;if(c)c.innerHTML=mode==='savdo'?'✅ savdodagi':'✅ qo’lda qoldi';}
+  });
+  if(n){try{autoSaveEntrySilent();}catch(e){} try{renderEntry();}catch(e){} _svStat('✅ '+n+' ta farq hal qilindi','#375623');}
+  if(f.every(function(x){return x._hal||!(x.k in _SV_MAP);})){var o=document.getElementById('svFarqOv');if(o)setTimeout(function(){o.remove();},700);}
 }
 function _svFarqShow(f){
   var o=document.getElementById('svFarqOv');if(o)o.remove();
