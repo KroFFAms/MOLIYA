@@ -6814,7 +6814,7 @@ function renderEntry(){
   mg='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#EAF5EA;border:1px solid #b9dcb9;border-radius:8px;padding:8px 12px;margin-bottom:8px">'+
     '<button onclick="savdoOl({qolda:1})" style="background:#1F7A3D;color:#fff;border:0;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer">\ud83d\udd04 Savdodan olish</button>'+
     '<span id="svStat" style="font-size:12px;color:#375623">'+(window._svStatTxt||'Savdo tushumi har 10 daqiqada o\u2019zi yoziladi')+'</span>'+
-    '<span style="font-size:11px;color:#777;flex-basis:100%">Avtomatik: <b>Magazin naqd</b>, <b>Karta</b>, <b>Payme1</b>, <b>Payme2</b>, <b>Vazvrat</b>, <b>HR kirim</b> (bank) va <b>qarz to\u2019lovlari</b> (naqd/karta/payme). Siz qo\u2019lda o\u2019zgartirgan katak ustiga yozilmaydi \u2014 farq bo\u2019lsa ogohlantiradi. \ud83d\udfe2 \u2014 savdodan kelgan qiymat.</span>'+
+    '<span style="font-size:11px;color:#777;flex-basis:100%">Avtomatik: <b>Magazin naqd</b>, <b>Karta</b>, <b>Payme1</b>, <b>Payme2</b>, <b>Vazvrat</b>, <b>HR kirim</b> (bank) va <b>qarz to\u2019lovlari</b> (naqd/karta/payme). Billz\u2019ga kirmagan pulni shu katakka <b>qo\u2019lda qo\u2019shib</b> yozavering \u2014 savdo yangilanganda qo\u2019shganingiz saqlanadi. \ud83d\udfe2 \u2014 faqat savdodan, \ud83d\udfe1 \u2014 savdo + qo\u2019lda qo\u2019shilgan (ustiga olib borsangiz ko\u2019rinadi).</span>'+
   '</div>'+mg;
   h+=_sec('\ud83c\udfea Magazin \u2014 kunlik (barcha ustunlar)',mg,true);
 
@@ -7207,8 +7207,13 @@ var _SV_MAP={m:function(r){return r.naqd;}, i:function(r){return r.vozvrat;}, n:
 var _SV_NOM={m:'Magazin naqd',i:'Vazvrat',n:'Karta',o:'Payme1',f:'Payme2',c:'HR kirim',h:'Qarz (naqd)',g:'Qarz (karta)',e:'Xaridor payme1',
   r:'Tunikafon (bo’lim qarzi)',s:'Travertin (bo’lim qarzi)',l:'KLIK',xa:'Xarajat',xr:'Xarid (summa)',tun:'Tunikafon kirim (summa)'};
 var _svLast={}, _svBusy=false;
-function _svTd(dd,k){return (dd&&dd._sv&&k in dd._sv&&Number(dd[k]||0)===Number(dd._sv[k]||0)&&Number(dd[k]||0)!==0)?' style="background:#D8F0D8" title="Savdodan avtomatik"':'';}
-function _svR(v){return Math.round((Number(v)||0)*100)/100;}
+function _svTd(dd,k){
+  if(!(dd&&dd._sv&&k in dd._sv))return '';
+  var v=Number(dd[k]||0),sv=Number(dd._sv[k]||0);
+  if(v===sv) return v!==0?' style="background:#D8F0D8" title="Savdodan avtomatik"':'';
+  return ' style="background:#FFF2CC" title="Savdodan: '+fmt(sv)+' + qo‘lda: '+fmt(v-sv)+'"';
+}
+function _svR(v){return Math.round(Number(v)||0);} // butun so‘m (kasr kataklarda noto‘g‘ri ko‘rinardi)
 function _svSana(iso){var p=String(iso).split('-');return p[2]+'.'+p[1]+'.'+p[0];}
 function _svStat(t,c){window._svStatTxt=t;var el=document.getElementById('svStat');if(el){el.textContent=t;el.style.color=c||'#375623';}}
 function _svApply(raw,rows,y,m,force){
@@ -7225,10 +7230,13 @@ function _svApply(raw,rows,y,m,force){
     var sv=dd._sv||{}, ch=0;
     Object.keys(_SV_MAP).forEach(function(k){
       var nv=_svR(_SV_MAP[k](r)), cur=_svR(dd[k]);
-      if(cur===nv){sv[k]=nv;return;}
-      var bizniki=(cur===0)||(k in sv&&cur===_svR(sv[k]));
-      if(bizniki||force){dd[k]=nv;sv[k]=nv;ch++;}
-      else res.farq.push({sana:sana,k:k,qolda:cur,savdo:nv});
+      if(cur===nv){if(Number(dd[k])!==nv){dd[k]=nv;ch++;}sv[k]=nv;return;}
+      // Savdodan oldin ham yozilgan bo'lsa: qo'lda qo'shilgan qism saqlanadi, savdodagi o'zgarish ustiga qo'shiladi
+      //   katak = savdo + qo'lda qo'shilgan (Billz'ga kirmagan pul uchun)
+      if(force){dd[k]=nv;sv[k]=nv;ch++;return;}
+      if(k in sv){dd[k]=_svR(cur+(nv-_svR(sv[k])));sv[k]=nv;ch++;return;}
+      if(cur===0){dd[k]=nv;sv[k]=nv;ch++;return;}
+      res.farq.push({sana:sana,k:k,qolda:cur,savdo:nv});
     });
     dd._sv=sv;dd._svq={chek:r.chek,jami:_svR(r.jami),qarzga:_svR(r.qarzga)};
     if(ch){res.upd+=ch;res.kun++;}
@@ -7457,7 +7465,7 @@ function _svXq(raw,rows,force,res){
   var xq=raw.xaridor_qarz, sv=xq._sv||{}, nv={yangi:_svR(yangi),tolandi:_svR(tol)};
   ['yangi','tolandi'].forEach(function(k){
     var cur=_svR(xq[k]);
-    if(cur===nv[k]){sv[k]=nv[k];return;}
+    if(cur===nv[k]){if(Number(xq[k])!==nv[k]){xq[k]=nv[k];res.upd++;}sv[k]=nv[k];return;}
     if(cur===0||(k in sv&&cur===_svR(sv[k]))||force){xq[k]=nv[k];sv[k]=nv[k];res.upd++;}
     else res.farq.push({sana:'oy jami',k:'xq_'+k,qolda:cur,savdo:nv[k]});
   });
