@@ -7220,6 +7220,10 @@ function _svTd(dd,k){
   if(v===sv) return v!==0?' style="background:#D8F0D8" title="Savdodan avtomatik'+_vt+'"':'';
   return ' style="background:#FFF2CC" title="Savdodan: '+fmt(sv)+' + qo‘lda: '+fmt(v-sv)+'"';
 }
+/* Savdodan olish shu sanadan boshlanadi — oldingi kunlar (qo'lda kiritilgan) tegilmaydi */
+var _SV_DAN_DEF='2026-10-14';
+function _svDan(){var s=(typeof SOZ!=='undefined'&&SOZ&&SOZ.svDan)||_SV_DAN_DEF;return /^\d{4}-\d\d-\d\d$/.test(s)?s:_SV_DAN_DEF;}
+function _svEski(sana){var p=String(sana||'').split('.');if(p.length!==3)return false;return (p[2]+'-'+p[1]+'-'+p[0])<_svDan();}
 function _svR(v){return Math.round(Number(v)||0);} // butun so‘m (kasr kataklarda noto‘g‘ri ko‘rinardi)
 function _svSana(iso){var p=String(iso).split('-');return p[2]+'.'+p[1]+'.'+p[0];}
 function _svStat(t,c){window._svStatTxt=t;var el=document.getElementById('svStat');if(el){el.textContent=t;el.style.color=c||'#375623';}}
@@ -7344,11 +7348,12 @@ function savdoOl(opt){
     .then(function(rows){
       _svBusy=false;
       if(!Array.isArray(rows))rows=[];
-      var res=_svApply(raw,rows,y,m,!!opt.force);
+      var _dn=_svDan(), rowsY=rows.filter(function(r){return String(r.kun)>=_dn;});
+      var res=_svApply(raw,rowsY,y,m,!!opt.force);
       try{_svXq(raw,rows,!!opt.force,res);}catch(e){console.error('svXq',e);}
-      try{_svXa(raw,rows,!!opt.force,res);}catch(e){console.error('svXa',e);}
-      try{_svXr(raw,rows,!!opt.force,res);}catch(e){console.error('svXr',e);}
-      try{if(Array.isArray(window._svTunList))_svTun(raw,window._svTunList,!!opt.force,res);}catch(e){console.error('svTun',e);}
+      try{_svXa(raw,rowsY,!!opt.force,res);}catch(e){console.error('svXa',e);}
+      try{_svXr(raw,rowsY,!!opt.force,res);}catch(e){console.error('svXr',e);}
+      try{if(Array.isArray(window._svTunList))_svTun(raw,window._svTunList.filter(function(x){return String(x.sana)>=_dn;}),!!opt.force,res);}catch(e){console.error('svTun',e);}
       if(_stD&&_stD._k===y+'-'+m)_stD=null;
       var vaqt=new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
       var t='✅ '+vaqt+' · '+rows.length+' kun savdo'+(res.upd?' · '+res.kun+' kun yangilandi':' · o’zgarish yo’q')+(res.farq.length?' · ⚠️ '+res.farq.length+' ta farq':'')+(res.xaSkip?' · karta/bank chiqimi '+fmt(res.xaSkip)+' (qo’lda)':'');
@@ -7403,7 +7408,7 @@ function _svXa(raw,rows,force,res){
   });
   // KROFF'da o'chirilgan chiqim — qator bo'shatiladi (qo'lda o'zgartirilmagan bo'lsa)
   Object.keys(have).forEach(function(k){
-    if(want[k])return; var x=have[k];
+    if(want[k])return; if(_svEski(have[k]&&have[k].sana))return; var x=have[k];
     if(!x._svv||same(vals(x),x._svv)||force){x.nomi='';x.kat='';x.naqd=0;x.payme=0;x.payme2=0;delete x._svx;delete x._svv;res.upd++;}
   });
   res.xaSkip=skip;
@@ -7450,7 +7455,7 @@ function _svXr(raw,rows,force,res){
     put(row,w,nv);res.upd++;
   });
   Object.keys(have).forEach(function(k){
-    if(want[k])return; var x=have[k];
+    if(want[k])return; var x=have[k]; if(_svEski(x.sana))return;
     if(!x._svv||same(vals(x),x._svv)||force){var sn=x.sana,d=JSON.parse(JSON.stringify(_XR_DEF));for(var kk in d)x[kk]=d[kk];x.sana=sn;delete x._svx;delete x._svv;res.upd++;}
   });
 }
@@ -7486,7 +7491,7 @@ function _svTun(raw,list,force,res){
     put(at,t);res.upd++;
   });
   Object.keys(have).forEach(function(k){
-    if(want[k])return;var i=have[k];
+    if(want[k])return;var i=have[k]; if(_svEski(D[i]&&D[i].sana))return;
     if(!D[i]._svc||D[i]._svc===cur(i)||force){var d=D[i],b=B[i]||{};['c','d','e','f','g','h','i','j','k','l'].forEach(function(c){d[c]=0;});d.nom='';
       ['kv','narx','summa','tolandi','ustaga'].forEach(function(c){b[c]=0;});b.nom='';delete d._svx;delete d._svs;delete d._svc;res.upd++;}
   });
@@ -7494,9 +7499,18 @@ function _svTun(raw,list,force,res){
 /* ---- Xaridorlar qarzi (oy jami) savdodan: + qarzga sotildi, − to'landi ---- */
 function _svXq(raw,rows,force,res){
   var yangi=0,tol=0;
-  rows.forEach(function(r){yangi+=(+r.mq_yangi||0);tol+=(+r.q_naqd||0)+(+r.q_karta||0)+(+r.q_payme1||0)+(+r.q_payme2||0)+(+r.q_bank||0);});
+  var _dn=_svDan(),yE=0,tE=0;
+  rows.forEach(function(r){var a=(+r.mq_yangi||0),b=(+r.q_naqd||0)+(+r.q_karta||0)+(+r.q_payme1||0)+(+r.q_payme2||0)+(+r.q_bank||0);
+    if(String(r.kun)<_dn){yE+=a;tE+=b;}else{yangi+=a;tol+=b;}});
   if(!raw.xaridor_qarz)raw.xaridor_qarz={oldingi:0,yangi:0,tolandi:0};
-  var xq=raw.xaridor_qarz, sv=xq._sv||{}, nv={yangi:_svR(yangi),tolandi:_svR(tol)};
+  var xq=raw.xaridor_qarz, sv=xq._sv||{};
+  /* Boshlanish sanasidan oldingi kunlar qismi bir marta qotiriladi (keyin Savdo o'zgarsa ham tegilmaydi) */
+  if(!xq._svBase||xq._svBase.dan!==_dn){
+    /* avval savdodan yozilgan bo'lsa — o'sha raqam saqlanadi (bazasi = yozilgan − boshlanishdan keyingi qism) */
+    if('yangi' in sv||'tolandi' in sv)xq._svBase={dan:_dn,yangi:_svR(('yangi' in sv)?sv.yangi-yangi:yE),tolandi:_svR(('tolandi' in sv)?sv.tolandi-tol:tE)};
+    else if(yE||tE)xq._svBase={dan:_dn,yangi:_svR(yE),tolandi:_svR(tE)};}
+  var bs=(xq._svBase&&xq._svBase.dan===_dn)?xq._svBase:{yangi:0,tolandi:0};
+  var nv={yangi:_svR(bs.yangi+yangi),tolandi:_svR(bs.tolandi+tol)};
   ['yangi','tolandi'].forEach(function(k){
     var cur=_svR(xq[k]);
     if(cur===nv[k]){if(Number(xq[k])!==nv[k]){xq[k]=nv[k];res.upd++;}sv[k]=nv[k];return;}
