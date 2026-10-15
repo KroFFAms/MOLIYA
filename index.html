@@ -6820,7 +6820,7 @@ function renderEntry(){
   mg='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#EAF5EA;border:1px solid #b9dcb9;border-radius:8px;padding:8px 12px;margin-bottom:8px">'+
     '<button onclick="savdoOl({qolda:1})" style="background:#1F7A3D;color:#fff;border:0;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer">\ud83d\udd04 Savdodan olish</button>'+
     '<span id="svStat" style="font-size:12px;color:#375623">'+(window._svStatTxt||'Savdo tushumi har 10 daqiqada o\u2019zi yoziladi')+'</span>'+
-    '<span style="font-size:11px;color:#777;flex-basis:100%">Avtomatik: <b>Magazin naqd</b>, <b>Karta</b>, <b>Payme1</b>, <b>Payme2</b>, <b>HR kirim</b> (bank) — qaytarilgan pul ayirilgan holda (Vazvrat ko\u2019chirilmaydi) va <b>qarz to\u2019lovlari</b> (naqd/karta/payme). Billz\u2019ga kirmagan pulni shu katakka <b>qo\u2019lda qo\u2019shib</b> yozavering \u2014 savdo yangilanganda qo\u2019shganingiz saqlanadi. \ud83d\udfe2 \u2014 faqat savdodan, \ud83d\udfe1 \u2014 savdo + qo\u2019lda qo\u2019shilgan (ustiga olib borsangiz ko\u2019rinadi).</span>'+
+    '<span style="font-size:11px;color:#777;flex-basis:100%">Avtomatik: <b>Magazin naqd</b>, <b>Karta</b>, <b>Payme1</b>, <b>Payme2</b>, <b>HR kirim</b> (bank) — sotuvdan tushgan pul (Vazvrat ko\u2019chirilmaydi, uni qo\u2019lda yozasiz) va <b>qarz to\u2019lovlari</b> (naqd/karta/payme). Billz\u2019ga kirmagan pulni shu katakka <b>qo\u2019lda qo\u2019shib</b> yozavering \u2014 savdo yangilanganda qo\u2019shganingiz saqlanadi. \ud83d\udfe2 \u2014 faqat savdodan, \ud83d\udfe1 \u2014 savdo + qo\u2019lda qo\u2019shilgan (ustiga olib borsangiz ko\u2019rinadi).</span>'+
   '</div>'+mg;
   h+=_sec('\ud83c\udfea Magazin \u2014 kunlik (barcha ustunlar)',mg,true);
 
@@ -7208,9 +7208,11 @@ document.addEventListener('input',function(e){
 /* Vazvrat Moliya'ga ko'chirilmaydi (magazin qaytarishni o'zi alohida yuritadi).
    Shuning uchun har hisobga qaytarilgan pul o'sha hisobdan ayirib yoziladi (sof tushum). */
 var _SV_V=function(r,k){return +r[k]||0;};
-var _SV_MAP={m:function(r){return (+r.naqd||0)-_SV_V(r,'voz_naqd');}, n:function(r){return (+r.karta||0)-_SV_V(r,'voz_karta');},
-  o:function(r){return (+r.payme1||0)-_SV_V(r,'voz_payme1');}, f:function(r){return (+r.payme2||0)+(+r.q_payme2||0)-_SV_V(r,'voz_payme2');},
-  c:function(r){return (+r.bank||0)+(+r.q_bank||0)-_SV_V(r,'voz_bank');}, h:function(r){return r.q_naqd;},
+/* Billz'dagi vazvrat hech qayerga ko'chirilmaydi: naqd/karta/Payme — sotuvdan tushgan pul (qaytarish ayirilmaydi),
+   Vazvratni magazin o'zi qo'lda yozadi. */
+var _SV_MAP={m:function(r){return +r.naqd||0;}, n:function(r){return +r.karta||0;},
+  o:function(r){return +r.payme1||0;}, f:function(r){return (+r.payme2||0)+(+r.q_payme2||0);},
+  c:function(r){return (+r.bank||0)+(+r.q_bank||0);}, h:function(r){return r.q_naqd;},
   g:function(r){return r.q_karta;}, e:function(r){return r.q_payme1;},
   r:function(r){return r.tun_qarz;}, s:function(r){return r.trav_qarz;}, l:function(r){return r.klik;}};
 var _SV_NOM={m:'Magazin naqd',i:'Vazvrat',n:'Karta',o:'Payme1',f:'Payme2',c:'HR kirim',h:'Qarz (naqd)',g:'Qarz (karta)',e:'Xaridor payme1',
@@ -7351,6 +7353,8 @@ function savdoOl(opt){
       if(!Array.isArray(rows))rows=[];
       var _dn=_svDan(), rowsY=rows.filter(function(r){return String(r.kun)>=_dn;});
       var res=_svApply(raw,rowsY,y,m,!!opt.force);
+      /* Billz vazvrati hech bir kunda qolmasin (oldin savdodan tushgan bo'lsa — faqat o'sha qismi olib tashlanadi) */
+      try{((raw.magazin&&raw.magazin.days)||[]).forEach(function(dd){if(dd&&dd._sv&&('i' in dd._sv)){dd.i=_svR(_svR(dd.i)-_svR(dd._sv.i));delete dd._sv.i;delete dd._svi;res.upd++;res.kun++;}});}catch(e){}
       try{_svXq(raw,rows,!!opt.force,res);}catch(e){console.error('svXq',e);}
       try{_svXa(raw,rowsY,!!opt.force,res);}catch(e){console.error('svXa',e);}
       try{_svXr(raw,rowsY,!!opt.force,res);}catch(e){console.error('svXr',e);}
