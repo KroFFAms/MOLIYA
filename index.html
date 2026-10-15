@@ -7437,6 +7437,11 @@ function _svXr(raw,rows,force,res){
   var vals=function(o){return {summa:_svR(o.summa),naqd:_svR(o.naqd),plastik:_svR(o.plastik),ichki:_svR(o.ichki),hr:_svR(('hr_src' in o)?_xrHr(o):o.hr)};};
   var same=function(a,b){return a.summa===b.summa&&a.naqd===b.naqd&&a.plastik===b.plastik&&a.ichki===b.ichki&&a.hr===b.hr;};
   var put=function(x,w,nv){x.v2=1;x.sana=w.sana;x.tam=_svTamNom(raw,w.tam);x.tovar=w.tovar;x.miqdor=w.miqdor||0;x.summa=nv.summa;x.naqd=nv.naqd;x.plastik=nv.plastik;x.ichki=nv.ichki;_xrSetHr(x,'hr_kroff',nv.hr);x._svv=nv;};
+  /* Billz kirimi (ta'minotchisiz, to'lovsiz) Moliya'ga kirmasligi kerak — qaysi kunda bo'lsa ham, qo'lda o'zgartirilmagan bo'lsa tozalanadi */
+  X.forEach(function(x){if(!x||!/^x\|bz/.test(String(x._svx||'')))return;
+    if(x.tam&&String(x.tam).trim())return;
+    if(_svR(x.naqd)||_svR(x.plastik)||_svR(x.ichki)||_svR(('hr_src' in x)?_xrHr(x):x.hr))return;
+    var sn=x.sana,d=JSON.parse(JSON.stringify(_XR_DEF));for(var kk in d)x[kk]=d[kk];x.sana=sn;delete x._svx;delete x._svv;res.upd++;});
   var have={};X.forEach(function(x){if(x&&x._svx)have[x._svx]=x;});
   var blank=function(x){return !x._svx&&!(x.tam||'').trim()&&!(x.tovar||'').trim()&&!_xrSumma(x)&&!_xrPaidSom(x);};
   var dkey=function(sn){return String(sn||'').split('.').reverse().join('');};
