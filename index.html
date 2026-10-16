@@ -7776,6 +7776,7 @@ function saveEntry(){
       <b id="dvHissa">0</b><i>shu oydagi jami hissangiz (so'm)</i>
     </div>
   </div>
+  <div id="dvTunHisob"></div>
   <div class="card">
     <h3>Oxirgi kunlar</h3>
     <div class="lst" id="dvLst"></div>
@@ -7941,6 +7942,21 @@ var XDEF_SOZ={
   }
 };
 
+/* Qurilma xodimni eslab qoladi: localStorage + cookie (1 yil) zaxirasi */
+function xkSetMe(id){
+  try{ localStorage.setItem('xk_me',id); }catch(e){}
+  try{ document.cookie='xk_me='+encodeURIComponent(id)+'; max-age=31536000; path=/; SameSite=Lax'; }catch(e){}
+  try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+}
+function xkGetMe(){
+  var v=null; try{ v=localStorage.getItem('xk_me'); }catch(e){}
+  if(!v){ try{ var m=document.cookie.match(/(?:^|;\s*)xk_me=([^;]+)/); if(m){ v=decodeURIComponent(m[1]); try{ localStorage.setItem('xk_me',v); }catch(e){} } }catch(e){} }
+  return v||null;
+}
+function xkDelMe(){
+  try{ localStorage.removeItem('xk_me'); localStorage.removeItem('xk_cache'); }catch(e){}
+  try{ document.cookie='xk_me=; max-age=0; path=/'; }catch(e){}
+}
 function lgErr(html){var e=x$('lgErr'); e.innerHTML=html; e.classList.remove('hide')}
 function boot(after){
   XADMKEY=localStorage.getItem('xk_admk')||'';
@@ -7963,12 +7979,17 @@ function boot(after){
       .map(function(x){return '<option value="'+x.id+'">'+xesc(x.ism)+' — '+xesc(x.bolim||'')+'</option>'}).join('');
     if(after){ after(); }
     else {
-      var saved=localStorage.getItem('xk_me');
-      if(saved&&XLIST.some(function(x){return x.id===saved})){ XME=XLIST.filter(function(x){return x.id===saved})[0]; enter(); }
+      var saved=xkGetMe();
+      try{ localStorage.setItem('xk_cache',JSON.stringify(XLIST.filter(function(x){return x.faol!==false}))); }catch(e){}
+      if(saved&&XLIST.some(function(x){return x.id===saved})){ XME=XLIST.filter(function(x){return x.id===saved})[0]; xkSetMe(saved); enter(); }
     }
     qFlush();
   }).catch(function(e){
     if(after) after();
+    /* internet yo'q: avval kirgan xodim oflayn ham o'z ekraniga o'tadi */
+    try{ var _sv=xkGetMe(), _ch=JSON.parse(localStorage.getItem('xk_cache')||'[]');
+      if(_sv&&_ch.length&&!after){ var _me=_ch.filter(function(x){return x.id===_sv})[0];
+        if(_me){ XLIST=_ch; XME=_me; enter(); return; } } }catch(e2){}
     x$('lgSel').innerHTML='<option>— ulanmadi —</option>';
     var m=String(e.message||e);
     lgErr(/404/.test(m)? '<b>Jadval topilmadi.</b> <code>xodim_jadval.sql</code> ni Supabase → SQL Editor da ishga tushiring.'
@@ -7984,7 +8005,7 @@ function doLogin(){
   var x=XLIST.filter(function(a){return a.id===id})[0];
   if(!x) return toast('Xodim topilmadi');
   if(String(x.pin||'1234')!==pin) return toast('Parol noto‘g‘ri');
-  XME=x; localStorage.setItem('xk_me',id);
+  XME=x; xkSetMe(id);
   // xodim kirdi — shu qurilmadagi rahbar sessiyasi yopiladi (Moliyaga yana parol bilan kiriladi)
   if(!(localStorage.getItem('xk_boss_me')===id)){ try{ localStorage.removeItem('moliya_auth_ts'); }catch(e){}
     var _mw=document.getElementById('mainWrap'); if(_mw) _mw.style.display='none'; }
@@ -8025,21 +8046,25 @@ function bossOnly(){
 function enter(){
   x$('login').classList.add('hide'); x$('app').classList.remove('hide');
   x$('who').innerHTML='<span style="font-size:18px;vertical-align:middle">👤</span> '+xesc(XME.ism)+
-    ' <span style="opacity:.6">▾</span><br>'+xesc(XME.bolim||'');
+    ' <span style="opacity:.6">▾</span><br>'+xesc(XME.bolim||'')+(XME.tun_kirim?' · 👑 boshliq':'');
   buildNav(); loadMine(); show('dav');
   try{ xmTekshir(); }catch(e){}
 }
 function chiqish(){ if(!confirm('Hisobdan chiqasizmi? Keyin qayta parol so‘raladi.'))return;
-  localStorage.removeItem('xk_me'); location.reload() }
+  xkDelMe(); location.reload() }
 
+/* Tunikafon xodimlari ish haqini kv bo'yicha oladi — vazifa va natija yo'q, faqat KELDIM/KETDIM */
+function _xTunIsh(){ return !!(XME&&!XBOSS&&String(XME.bolim||'').toLowerCase()==='tunikafon'); }
 function buildNav(){
   var it;
   if(XBOSS) it=[['adm','⚙️','Boshqaruv'],['soz','🔧','Sozlama'],['me','👤','O‘zimni o‘tkazish'],['moliya','📈','Moliya']];
   else{
-    it=[['dav','🕘','Davomat'],['vaz','✅','Vazifa']];
+    it=[['dav','🕘','Davomat']];
+    if(!_xTunIsh()) it.push(['vaz','✅','Vazifa']);
     if(XME&&XME.tun_kirim) it.push(['tun','🔧','Tunikafon']);
     if(_menRahbar()) it.push(['tas','🛡️','Tasdiqlash']);
-    it.push(['nat','📊','Natija'],['adm','⚙️','Boshqaruv'],['soz','🔧','Sozlama']);
+    if(!_xTunIsh()) it.push(['nat','📊','Natija']);
+    it.push(['adm','⚙️','Boshqaruv'],['soz','🔧','Sozlama']);
     if(_xkBossNow()) it.push(['moliya','📈','Moliya']);
   }
   x$('nav').innerHTML=it.map(function(a){
@@ -8050,6 +8075,7 @@ function show(v){
   if(v==='soz'){ XADMT='soz'; v='adm'; }
   if(v==='me'&&XBOSS) return bossAsMe();
   if(XBOSS) v='adm';
+  if((v==='vaz'||v==='nat')&&_xTunIsh()) v='dav';
   ['dav','vaz','tas','nat','adm','tun'].forEach(function(k){
     var _vv=x$('v-'+k); if(_vv) _vv.classList.toggle('on',k===v);
     var b=x$('nb-'+k); if(b) b.classList.toggle('on',k===v&&!(k==='adm'&&XADMT==='soz'));
@@ -8089,6 +8115,31 @@ function loadMine(){
 function myToday(){ var b=bugun();
   return XDAV.filter(function(r){return r.xodim_id===XME.id&&r.sana===b})[0]||null }
 
+/* Tunikafon xodimi: o'z foiz stavkasi va shu oydagi ulushi (hisob-kitob) */
+var _dvTH={oy:'',d:null,busy:false};
+function _dvTunHisob(){
+  var el=x$('dvTunHisob'); if(!el||!XME) return;
+  if(String(XME.bolim||'').toLowerCase()!=='tunikafon'||XBOSS){ el.innerHTML=''; return; }
+  var oy=davrHoz();
+  var kun=0, seen={}; (XDAV||[]).forEach(function(r){ if(r.xodim_id===XME.id&&String(r.sana).indexOf(oy)===0&&r.kelgan&&r.ketgan&&!seen[r.sana]){seen[r.sana]=1;kun++;} });
+  var D=_dvTH.d, h='<div class="card"><h3>🔧 Mening stavkam</h3>';
+  if(!D){ h+='<div class="mut">'+(_dvTH.busy?'Yuklanmoqda…':'Hozircha ma‘lumot yo‘q')+'</div></div>'; el.innerHTML=h;
+    if(!_dvTH.busy&&_dvTH.oy!==oy){ _dvTH.busy=true; _dvTH.oy=oy;
+      sbRpc('tun_hisob_mening',{p_xodim:XME.id,p_pin:String(XME.pin||'1234'),p_oy:oy}).then(function(r){ _dvTH.d=r||{bor:false}; })
+        .catch(function(){ _dvTH.d={err:1}; }).then(function(){ _dvTH.busy=false; _dvTunHisob(); }); }
+    return; }
+  if(D.err){ h+='<div class="mut">Yuklab bo‘lmadi (SQL yangilanmagan bo‘lishi mumkin)</div></div>'; el.innerHTML=h; return; }
+  if(!D.bor){ h+='<div class="mut">Foiz stavkangiz hali belgilanmagan — Alam yoki Jobir kiritadi.</div></div>'; el.innerHTML=h; return; }
+  /* ulush: jami ballda shu xodimning saqlangan balli o'rniga hozirgi kuni qo'yiladi */
+  var myB=(+D.foiz||0)*kun, oldB=+D.ball||0, sb=(+D.ball>0||+D.ulush>0)&&+D.ulush>0?Math.round((+D.opshi)*oldB/(+D.ulush)):0;
+  var ul=+D.ulush||0;
+  if(sb>0){ var tot=sb-oldB+myB; ul=tot>0?Math.round((+D.opshi)*myB/tot):0; }
+  h+='<div class="grid3"><div class="stat"><b>'+(+D.foiz||0)+'%</b><i>foiz stavka</i></div>'+
+     '<div class="stat"><b>'+kun+'</b><i>ishlagan kun</i></div>'+
+     '<div class="stat"><b>'+xnum(ul)+'</b><i>taxminiy ulush (so‘m)</i></div></div>'+
+     '<div class="mut" style="margin-top:8px">Hisob: '+kun+' kun × '+(+D.foiz||0)+'% = '+xnum(myB)+' ball. Faqat KELDIM va KETDIM ikkalasi bosilgan kunlar hisoblanadi. Yakuniy summani Alam yoki Jobir chiqaradi.</div></div>';
+  el.innerHTML=h;
+}
 function renderDav(){
   if(!XME)return;
   var d=new Date();
@@ -8124,6 +8175,7 @@ function renderDav(){
   x$('dvPinWarn').classList.toggle('hide', String(XME.pin||'1234')!=='1234');
   var mine=XDAV.filter(function(r){return r.xodim_id===XME.id});
   var st=oyStat(XME,davrHoz());
+  try{ _dvTunHisob(); }catch(e){ console.error(e); }
   x$('dvIsh').textContent=st.ishKun; x$('dvKech').textContent=st.kechKun; x$('dvYoq').textContent=st.kelmagan;
   var _oy=kunOySum(XME,davrHoz()), _hb=x$('dvHissa');
   if(_hb){ _hb.innerHTML=(_oy>=0?'+':'')+xnum(_oy); _hb.style.color=_oy>=0?'#6ee7a5':'#f08b8f'; }
@@ -10345,9 +10397,9 @@ function xForm(id,pre){
     '<label>Bo\u2018lim boshlig\u2018i (vazifalarni tasdiqlaydi)</label><select id="xfRah">'+
       '<option value="0"'+(x.rahbar?'':' selected')+'>Yo\u2018q</option>'+
       '<option value="1"'+(x.rahbar?' selected':'')+'>Ha \u2014 nazoratchi</option></select>'+
-    '<label>🔧 Tunikafon kirim ruxsati</label><select id="xfTun">'+
-      '<option value="0"'+(x.tun_kirim?'':' selected')+'>Yo‘q</option>'+
-      '<option value="1"'+(x.tun_kirim?' selected':'')+'>Ha — Tunikafon kirimini kiritadi</option></select>'+
+    '<label>👑 Tunikafon maqomi</label><select id="xfTun">'+
+      '<option value="0"'+(x.tun_kirim?'':' selected')+'>Xodim (oddiy)</option>'+
+      '<option value="1"'+(x.tun_kirim?' selected':'')+'>Boshliq — kirim yozadi, foiz va hisobni boshqaradi, xodimlar davomatini tuzatadi</option></select>'+
     (id?'<div style="height:10px"></div><button class="btn g" onclick="xmAdmin(\''+id+'\')">🪪 Shaxsiy ma’lumotlari (pasport, manzil)</button>':'')+
     '<label>Holati</label><select id="xfFaol"><option value="1"'+(x.faol!==false?' selected':'')+'>Faol</option>'+
       '<option value="0"'+(x.faol===false?' selected':'')+'>Nofaol</option></select>'+
@@ -10566,7 +10618,7 @@ function xkFromLock(){
    Rahbar kompyuterida (moliya paroli kiritilgan) bu ishlamaydi. */
 (function(){
   try{
-    var me=localStorage.getItem('xk_me');
+    var me=xkGetMe();
     var boss=localStorage.getItem('moliya_auth')==='1'||localStorage.getItem('moliya_pin_ok')==='1';
     if(me&&!boss){
       var mw=document.getElementById('mainWrap'); if(mw) mw.style.display='none';
