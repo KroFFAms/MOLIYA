@@ -9082,7 +9082,7 @@ function _vzTavsif(v){ var m=/^sh(.+)_\d{8}$/.exec(String(v&&v.id||'')); return 
 function _vzMeniki(v,x){
   if(!x)return false;
   if(v.xodim_id) return v.xodim_id===x.id;
-  if(v.bolim!==x.bolim) return false;
+  if(!v.bolim||!x.bolim||String(v.bolim).trim().toLowerCase()!==String(x.bolim).trim().toLowerCase()) return false; /* bo'limsiz xodim bo'lim vazifasini olmaydi */
   try{ if(localStorage.getItem('xk_boss_me')===x.id) return false; }catch(e){}
   return true;
 }
