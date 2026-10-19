@@ -8349,6 +8349,7 @@ function _tunDraw(){
   var el=x$('v-tun'); if(!el) return;
   if(XTUN_TAB==='hisob') return _tunHisobDraw(el);
   if(XTUN_TAB==='dav') return _tunDavDraw(el);
+  if(XTUN_TAB==='narx') return _tunNarxDraw(el);
   var T={summa:0,tolandi:0,kv:0,ustaga:0}; XTUN.forEach(function(r){T.summa+=+r.summa||0;T.tolandi+=+r.tolandi||0;T.kv+=+r.kv||0;T.ustaga+=+r.ustaga||0;});
   var h=_tunTabs()+'<div class="card"><div class="row" style="justify-content:space-between"><button class="btn g sm" onclick="tunOy(-1)">◀</button>'+
     '<b>'+oyNomi(XTUN_OY+'-01')+'</b><button class="btn g sm" onclick="tunOy(1)">▶</button></div>'+
@@ -8376,18 +8377,81 @@ var XTUN_X=null;
 function _tunXLoad(cb){ if(XTUN_X)return cb&&cb();
   sbRpc('tun_kirim_xaridorlar',_tunPin()).then(function(r){XTUN_X=r||[];cb&&cb();}).catch(function(){XTUN_X=[];cb&&cb();}); }
 function _tunQ(q){
-  return '<div class="tfq" style="border:1px solid rgba(127,127,127,.25);border-radius:10px;padding:8px;margin-bottom:8px">'+
+  return '<div class="tfq"'+(q.un!=null&&q.xz?' data-un="'+(+q.un||0)+'" data-xn="'+xesc(q.xn||'')+'"':'')+' style="border:1px solid rgba(127,127,127,.25);border-radius:10px;padding:8px;margin-bottom:8px">'+
     '<div style="display:flex;gap:6px;align-items:center"><input class="q_nom" placeholder="Mahsulot / ish nomi (masalan: Tunika 0.45 oq)" value="'+xesc(q.nom||'')+'" style="flex:1">'+
     '<button type="button" class="btn g sm" style="width:auto;padding:6px 10px" onclick="this.closest(\'.tfq\').remove();_tunSum()">✕</button></div>'+
     '<div class="grid2" style="margin-top:6px"><div><label style="font-size:12px;margin-top:0">Miqdor</label><div style="display:flex;gap:4px"><input class="q_mq" type="number" inputmode="decimal" value="'+(q.miqdor||'')+'" oninput="_tunSum()" style="flex:1;min-width:0">'+
     '<select class="q_br" onchange="_tunSum()" style="width:70px">'+['m2','m','dona'].map(function(b){return '<option value="'+b+'"'+((q.birlik||'m2')===b?' selected':'')+'>'+(b==='m2'?'m²':b)+'</option>';}).join('')+'</select></div></div>'+
     '<div><label style="font-size:12px;margin-top:0">Narx (1 birlik)</label><input class="q_nx" type="number" inputmode="numeric" value="'+(q.narx||'')+'" oninput="_tunSum()"></div></div>'+
-    '<label style="font-size:12px">Summa</label><input class="q_sm" type="number" inputmode="numeric" value="'+(q.summa||'')+'" oninput="_tunSum(1)"></div>';
+    '<label style="font-size:12px">Summa</label><input class="q_sm" type="number" inputmode="numeric" value="'+(q.summa||'')+'" oninput="_tunSum(1)">'+
+    '<label style="font-size:12px">Usta xizmati (ustaga to‘lov narxi)</label><select class="q_xz" onchange="_tunXzCh(this)">'+_tunXzOpt(q)+'</select></div>';
+}
+/* ---- Usta xizmatlari va narxlari ---- */
+var XNARX=null, XNARX_SRV=true, _tfUstQol=false;
+var XNARX_DEF=[{id:'tunika',nom:'Tunika (kv)',birlik:'m2',usta_narx:25000}];
+function _tunNarxYukla(cb){
+  if(XNARX){ if(cb)cb(); return; }
+  sbRpc('tun_narx_royxat',_tunPin()).then(function(r){ XNARX=(r&&r.length)?r:XNARX_DEF.slice(); XNARX_SRV=true; })
+    .catch(function(){ XNARX=XNARX_DEF.slice(); XNARX_SRV=false; }).then(function(){ if(cb)cb(); });
+}
+function _tunXzOpt(q){
+  var L=XNARX||XNARX_DEF, sel=q.xz!=null?q.xz:(q._yangi?L[0]&&L[0].id:''), has=false;
+  var o='<option value="">— ustaga to‘lanmaydi —</option>'+L.map(function(n){ if(n.id===sel)has=true;
+    return '<option value="'+xesc(n.id)+'"'+(n.id===sel?' selected':'')+'>'+xesc(n.nom)+' · '+xnum(n.usta_narx)+' / '+(n.birlik==='m2'?'m²':n.birlik)+'</option>';}).join('');
+  if(sel&&!has) o+='<option value="'+xesc(sel)+'" selected>'+xesc(q.xn||sel)+' · '+xnum(q.un||0)+' (eski narx)</option>';
+  return o;
+}
+function _tunXzCh(sel){ var e=sel.closest('.tfq'); if(e){ delete e.dataset.un; delete e.dataset.xn; } _tfUstQol=false; _tunUsta(); }
+function _tunQUsta(e){ /* bir qator uchun usta narxi va summasi */
+  var id=e.querySelector('.q_xz').value; if(!id) return {xz:'',xn:'',un:0,sum:0};
+  var n=(XNARX||XNARX_DEF).filter(function(a){return a.id===id;})[0];
+  var un=e.dataset.un!=null&&e.dataset.un!==''?+e.dataset.un:(n?+n.usta_narx||0:0), xn=n?n.nom:(e.dataset.xn||id);
+  var mq=+e.querySelector('.q_mq').value||0;
+  return {xz:id,xn:xn,un:un,sum:Math.round(mq*un)};
+}
+function _tunUsta(){
+  if(_tfUstQol) return;
+  var t=0; [].slice.call(document.querySelectorAll('#tfQ .tfq')).forEach(function(e){ t+=_tunQUsta(e).sum; });
+  var u=x$('tfUst'); if(u) u.value=t?t:'';
+}
+function _tunNarxDraw(el){
+  el.innerHTML=_tunTabs()+'<div class="card"><div class="mut">Yuklanmoqda…</div></div>';
+  XNARX=null; _tunNarxYukla(function(){
+    var h=_tunTabs()+'<div class="card"><h3>💲 Ustalarga to‘lov narxlari</h3>'+
+      '<div class="mut" style="margin-bottom:8px;font-size:12px">Kirim yozilganda har bir qatorda xizmat tanlanadi, ustaga summa = miqdor × shu narx. Narxni o‘zgartirsangiz faqat yangi kirimlarga ta’sir qiladi.</div>'+
+      (XNARX_SRV?'':'<div class="warnbox" style="margin-bottom:8px">Serverda narxlar jadvali yo‘q — <b>xodim_tunikafon_5.sql</b> ni ishga tushiring. Hozircha faqat «Tunika 25 000 / m²» ishlaydi, o‘zgartirib bo‘lmaydi.</div>')+
+      '<div class="lst">'+XNARX.map(function(n){
+        return '<div class="it" onclick="tunNarxForm(\''+xesc(n.id)+'\')" style="cursor:pointer"><div class="m"><b>'+xesc(n.nom)+'</b><i>1 '+(n.birlik==='m2'?'m²':n.birlik)+' uchun ustaga '+xnum(n.usta_narx)+' so‘m</i></div><span class="mut">›</span></div>';}).join('')+'</div>'+
+      '<button class="btn" style="margin-top:10px" onclick="tunNarxForm()">➕ Xizmat qo‘shish</button></div>';
+    el.innerHTML=h;
+  });
+}
+function tunNarxForm(id){
+  var n=id?(XNARX||[]).filter(function(a){return a.id===id;})[0]:{birlik:'m2'}; if(!n) return;
+  sheet('<h2>'+(id?'Xizmatni tahrirlash':'Yangi xizmat')+'</h2>'+
+    '<label>Xizmat nomi</label><input id="nfNom" value="'+xesc(n.nom||'')+'" placeholder="masalan: Montaj, Kesish, Profil">'+
+    '<div class="grid2"><div><label>Birlik</label><select id="nfBr">'+['m2','m','dona'].map(function(b){return '<option value="'+b+'"'+(n.birlik===b?' selected':'')+'>'+(b==='m2'?'m²':b)+'</option>';}).join('')+'</select></div>'+
+    '<div><label>Ustaga (1 birlik, so‘m)</label><input id="nfNarx" type="number" inputmode="numeric" value="'+(n.usta_narx||'')+'"></div></div>'+
+    '<div style="height:14px"></div><button class="btn" onclick="tunNarxSave('+(id?"'"+xesc(id)+"'":'null')+')">Saqlash</button>'+
+    (id?'<div style="height:8px"></div><button class="btn bad" onclick="tunNarxOchir(\''+xesc(id)+'\')">🗑 O‘chirish</button>':'')+
+    '<div style="height:8px"></div><button class="btn g" onclick="closeSheet()">Yopish</button>');
+}
+function tunNarxSave(id){
+  var nom=x$('nfNom').value.trim(); if(!nom) return toast('Xizmat nomini yozing');
+  sbRpc('tun_narx_saqla',Object.assign(_tunPin(),{p_row:{id:id||'',nom:nom,birlik:x$('nfBr').value,usta_narx:+x$('nfNarx').value||0}}))
+    .then(function(){ closeSheet(); toast('Saqlandi'); XNARX=null; _tunNarxDraw(x$('v-tun')); })
+    .catch(function(e){ toast('Saqlanmadi: '+String(e.message||e).slice(0,90)); });
+}
+function tunNarxOchir(id){
+  if(!confirm('Xizmat o‘chirilsinmi? Eski kirimlar o‘zgarmaydi.')) return;
+  sbRpc('tun_narx_ochir',Object.assign(_tunPin(),{p_id:id})).then(function(){ closeSheet(); toast('O‘chirildi'); XNARX=null; _tunNarxDraw(x$('v-tun')); })
+    .catch(function(e){ toast('Xato: '+String(e.message||e).slice(0,90)); });
 }
 function tunQAdd(){ var w=x$('tfQ'); w.insertAdjacentHTML('beforeend',_tunQ({})); }
 function _tunQs(){ return [].slice.call(document.querySelectorAll('#tfQ .tfq')).map(function(e){
     var g=function(c){return e.querySelector(c).value;};
-    return {nom:g('.q_nom').trim(),miqdor:+g('.q_mq')||0,birlik:g('.q_br'),narx:+g('.q_nx')||0,summa:+g('.q_sm')||0};
+    var u=_tunQUsta(e);
+    return {nom:g('.q_nom').trim(),miqdor:+g('.q_mq')||0,birlik:g('.q_br'),narx:+g('.q_nx')||0,summa:+g('.q_sm')||0,xz:u.xz,xn:u.xn,un:u.un,ust:u.sum};
   }).filter(function(q){return q.nom||q.miqdor||q.summa;}); }
 /* ---- Tunikafon: ichki bo'limlar (Kirim | Hisob-kitob | Davomat) ---- */
 var XTUN_TAB='kirim', XTH=[], XTH_DAV={}, _thT={}, XTUN_DAVR=[];
@@ -8396,7 +8460,7 @@ function _tunTabs(){
   var t=(typeof myToday==='function')?myToday():null, w='';
   if(!t||!t.kelgan) w='<div class="warnbox" style="margin-bottom:10px">Bugun «KELDIM» bosilmagan. Davomat bo‘limiga o‘tib belgilang — belgilanmagan kun hisobga kirmaydi.</div>';
   else if(!t.ketgan) w='<div class="mut" style="margin-bottom:10px;font-size:12px">Ish tugagach «KETDIM» ni bosishni unutmang — aks holda bugungi kun hisobga kirmaydi.</div>';
-  return w+'<div class="row" style="gap:6px;margin-bottom:10px">'+[['kirim','🔧 Kirim'],['hisob','🧮 Hisob'],['dav','🕘 Davomat']].map(function(a){
+  return w+'<div class="row" style="gap:6px;margin-bottom:10px">'+[['kirim','🔧 Kirim'],['hisob','🧮 Hisob'],['dav','🕘 Davomat'],['narx','💲 Narx']].map(function(a){
     var on=XTUN_TAB===a[0];
     return '<button class="btn sm'+(on?'':' g')+'" style="flex:1" onclick="tunTab(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'</div>';
 }
@@ -8579,9 +8643,11 @@ function tunDavSave(xid){
 }
 function tunForm(id){
   if(!id){ var _t=myToday(); if(!_t||!_t.kelgan){ toast('Avval «KELDIM» ni bosing — shundan keyin kirim yoziladi'); show('dav'); return; } }
+  if(!XNARX){ _tunNarxYukla(function(){ tunForm(id); }); return; }
   var r=id?XTUN.filter(function(a){return a.id===id})[0]:{sana:bugun()};
   if(!r) return;
-  var qs=(r.qator&&r.qator.length)?r.qator:((+r.kv||+r.summa)&&id?[{nom:'Tunika',miqdor:r.kv,birlik:'m2',narx:r.narx,summa:(+r.summa||0)+(+r.skidka||0)}]:[{birlik:'m2'}]);
+  var qs=(r.qator&&r.qator.length)?r.qator:((+r.kv||+r.summa)&&id?[{nom:'Tunika',miqdor:r.kv,birlik:'m2',narx:r.narx,summa:(+r.summa||0)+(+r.skidka||0)}]:[{birlik:'m2',_yangi:1}]);
+  _tfUstQol=!!(id&&+r.ustaga&&!qs.some(function(q){return q.xz;}));
   var tol=_tunTolOf(r);
   sheet('<h2>'+(id?'Kirimni tahrirlash':'Yangi Tunikafon kirim')+'</h2>'+
     '<div class="grid2"><div><label>Sana</label><input id="tfSana" type="date" value="'+xesc(r.sana||bugun())+'"></div>'+
@@ -8602,12 +8668,12 @@ function tunForm(id){
     '<div id="tfQz" style="margin-top:6px;font-weight:600"></div>'+
     '<div id="tfIsh2"><label style="display:flex;gap:8px;align-items:center"><input id="tfAv" type="checkbox" style="width:auto"'+(r.avans?' checked':'')+'> Avans (ish hali bajarilmagan)</label>'+
     '<div class="grid2"><div><label>Usta</label><input id="tfUsta" value="'+xesc(r.usta||'')+'" placeholder="Usta ismi"></div>'+
-    '<div><label>Ustaga (so‘m)</label><input id="tfUst" type="number" inputmode="numeric" value="'+(r.ustaga||'')+'"></div></div></div>'+
+    '<div><label>Ustaga (so‘m)</label><input id="tfUst" type="number" inputmode="numeric" value="'+(r.ustaga||'')+'" oninput="_tfUstQol=true"><div class="mut" style="font-size:11px;margin-top:3px">Xizmat narxidan o‘zi hisoblanadi; kerak bo‘lsa qo‘lda o‘zgartiring</div></div></div></div>'+
     '<label>Izoh</label><input id="tfIz" value="'+xesc(r.izoh||'')+'">'+
     '<div style="height:14px"></div><button class="btn" onclick="tunSave('+(id?"'"+id+"'":'null')+')">Saqlash</button>'+
     (id?'<div style="height:8px"></div><button class="btn bad" onclick="tunSave(\''+id+'\',1)">🗑 O‘chirish</button>':'')+
     '<div style="height:8px"></div><button class="btn g" onclick="closeSheet()">Yopish</button>');
-  _tunTip(); _tunQarz();
+  _tunTip(); _tunQarz(); if(!id) _tunUsta();
   _tunXLoad(function(){ var dl=x$('tfXarL'); if(!dl)return; dl.innerHTML=(XTUN_X||[]).map(function(x){return '<option value="'+xesc(x.xaridor)+'">';}).join(''); _tunXar(1); });
 }
 function _tunTip(){ var q=x$('tfTip').value==='qarz'; x$('tfIsh').style.display=q?'none':'';x$('tfIsh2').style.display=q?'none':''; _tunQarz(); }
@@ -8625,6 +8691,7 @@ function _tunSum(fromSum){
   var sk=+x$('tfSk').value||0;
   if(s) x$('tfSum').value=Math.max(0,Math.round(s-sk));
   x$('tfKv').value=kv?Math.round(kv*100)/100:'';
+  _tunUsta();
   _tunQarz();
 }
 function _tunTolJ(){ var t={},j=0; _TUN_TOL.forEach(function(x){var v=+x$('tfT_'+x[0]).value||0; if(v>0){t[x[0]]=v;j+=v;}}); return {tol:t,jami:j}; }
