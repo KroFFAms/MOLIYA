@@ -6050,7 +6050,7 @@ function makeTemplate(){
   if(t.avans&&t.avans.days)t.avans.days.forEach(function(d){d.sana='';});
   return t;
 }
-function entryYM(){var ye=document.getElementById('kirYr'),me=document.getElementById('kirMn');var y=ye?ye.value:((ENTRY&&ENTRY.year)||'2026');var m=me?parseInt(me.value,10):((ENTRY&&ENTRY.month)||6);return {y:y,m:m};}
+function entryYM(){var ye=document.getElementById('kirYr'),me=document.getElementById('kirMn');var _n=new Date();var y=ye?ye.value:((ENTRY&&ENTRY.year)||String(_n.getFullYear()));var m=me?parseInt(me.value,10):((ENTRY&&ENTRY.month)||(_n.getMonth()+1));return {y:y,m:m};}
 function _supCarry(ym){
   try{
     if(!ENTRY)return 0;
@@ -6771,15 +6771,24 @@ function _inp(path,val,w,ta){return '<input data-p="'+path+'"'+(ta?' data-t="s"'
 function _row(label,path,val){return '<div style="display:flex;align-items:center;gap:8px;margin:3px 0"><label style="flex:1;font-size:12px;color:#444">'+label+'</label><input data-p="'+path+'" inputmode="numeric" value="'+_grp(val)+'" style="width:140px;padding:6px 8px;border:1px solid #ccc;border-radius:6px;text-align:right;font-size:13px"></div>';}
 function _sec(title,inner,open){return '<details '+(open?'open':'')+' style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;margin-bottom:10px"><summary style="padding:11px 14px;font-weight:600;font-size:14px;color:#1F4E79;cursor:pointer">'+title+'</summary><div style="padding:6px 14px 14px">'+inner+'</div></details>';}
 
+/* Oy/yil almashtirish: xato bo'lsa jim qolmaydi — xabar ko'rsatadi va oldingi oyga qaytadi */
+function kirGo(){
+  var ye=document.getElementById('kirYr'),me=document.getElementById('kirMn'), prev=ENTRY, py=ye&&ye.value, pm=me&&me.value;
+  try{ loadEntry(); renderEntry(); }
+  catch(e){ console.error('kirGo',e); ENTRY=prev;
+    try{ renderEntry(); }catch(e2){}
+    var m=(e&&e.message)||String(e);
+    alert('Bu oyni ochishda xato: '+m+'\n\nSkrinshotini yuboring.'); }
+}
 function renderEntry(){
   var el=document.getElementById('kir');if(!el)return;
   if(!ENTRY)loadEntry();
   var E=ENTRY,h='';
   h+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">';
   h+='<h2 style="font-size:17px;color:#1F4E79;margin:0">✍️ Ma\u2019lumot kiritish</h2>';
-  h+='<select id="kirYr" onchange="loadEntry();renderEntry()" style="padding:6px 10px;border:1px solid #ccc;border-radius:6px">';
+  h+='<select id="kirYr" onchange="kirGo()" style="padding:6px 10px;border:1px solid #ccc;border-radius:6px">';
   ['2025','2026','2027'].forEach(function(y){h+='<option '+(y===E.year?'selected':'')+'>'+y+'</option>';});
-  h+='</select><select id="kirMn" onchange="loadEntry();renderEntry()" style="padding:6px 10px;border:1px solid #ccc;border-radius:6px">';
+  h+='</select><select id="kirMn" onchange="kirGo()" style="padding:6px 10px;border:1px solid #ccc;border-radius:6px">';
   for(var m=1;m<=12;m++)h+='<option value="'+m+'" '+(m===E.month?'selected':'')+'>'+_OYNM[m-1]+'</option>';
   h+='</select><span style="font-size:11px;color:#888">Excel shart emas \u2014 kunlik ma\u2019lumotni shu yerdan kiriting</span><span id="kirAuto" style="font-size:11px;color:#375623;margin-left:auto;white-space:nowrap">\ud83d\udcbe avto-saqlash yoqilgan: yozganingiz 2\u20133 soniyada hisobotga tushadi</span></div>';
   h+='<div id="kirPrev" style="background:#EEF4FB;border:1px solid #b9d3ec;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px"></div>';
