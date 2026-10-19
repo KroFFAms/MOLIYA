@@ -5848,7 +5848,16 @@ function _empDailySums(raw){
 function _bxSoliq(c){return Math.round((Number(c.summa)||0)*(Number(c.soliqr)||0))/100;}
 function _bxQold(c){return (Number(c.summa)||0)-(Number(c.xarajat)||0)-(Number(c.ichki)||0)-(Number(c.payme2)||0)-(Number(c.payme1)||0)-_bxSoliq(c);}
 function _bxUlush(c){var q=_bxQold(c),u=Number(c.ulush)||0;return q>0?Math.round(q*u)/100:0;}
+/* Tunikafon ro'yxatlarida bo'sh (null) qator bo'lsa — nol qiymatli qator bilan to'ldiriladi (aks holda hisob va Kiritish sahifasi ochilmaydi) */
+function _fixTunNull(raw){
+  var T=raw&&raw.tunikafon; if(!T) return;
+  var zb=function(){return {nom:'',kv:0,narx:0,summa:0,oldingi:0,tolandi:0,ustaga:0};};
+  var zd=function(){return {c:0,d:0,e:0,f:0,g:0,h:0,i:0,j:0,k:0,l:0};};
+  if(Array.isArray(T.buyers)) for(var i=0;i<T.buyers.length;i++) if(!T.buyers[i]||typeof T.buyers[i]!=='object') T.buyers[i]=zb();
+  if(Array.isArray(T.days)) for(var j=0;j<T.days.length;j++) if(!T.days[j]||typeof T.days[j]!=='object') T.days[j]=zd();
+}
 function computeFromRaw(raw){
+  _fixTunNull(raw);
   var M=raw.magazin||{}, d=M.days||[], xr=raw.xarid||{}, xa=raw.xarajat||{};
   var xrows=xr.rows||null;
   var x_naqd=xrows?_S(xrows,'naqd'):(Number(xr.naqd)||0);
@@ -6699,6 +6708,7 @@ function loadEntry(){
   if(!ENTRY.suppliers)ENTRY.suppliers=[];
   if(!ENTRY.xaridor_qarz)ENTRY.xaridor_qarz={oldingi:0,yangi:0,tolandi:0};
   if(!ENTRY.tunikafon.buyers)ENTRY.tunikafon.buyers=[];
+  _fixTunNull(ENTRY);
   if(!ENTRY.penablok)ENTRY.penablok={};
   var _P=ENTRY.penablok;
   if(!_P.materials)_P.materials=[{nom:'Gips (qop)',kirim:0,narx:0},{nom:'Sement (qop)',kirim:0,narx:0},{nom:'Gek (kg)',kirim:0,narx:0},{nom:'Elektr (kVt)',kirim:0,narx:0},{nom:'Suv (m\u00b3)',kirim:0,narx:0},{nom:'Uskunalar (dona)',kirim:0,narx:0}];
@@ -7482,6 +7492,7 @@ function _svXr(raw,rows,force,res){
    To'lov: naqd→Naqd sotuv, HR→HR kirim, Payme1→Payme1, Payme2→Payme2, Karta→Karta; avans bo'lsa Avans ustunlariga. */
 function _svTun(raw,list,force,res){
   if(!raw.tunikafon)raw.tunikafon={};var TU=raw.tunikafon;if(!TU.days)TU.days=[];if(!TU.buyers)TU.buyers=[];
+  _fixTunNull(raw);
   var D=TU.days,B=TU.buyers,want={};
   var COL={naqd:'c',hr:'d',payme1:'e',payme2:'f',karta:'g'}, ACOL={naqd:'h',hr:'d',payme1:'i',payme2:'j',karta:'l'};
   list.forEach(function(t){want['tk|'+t.id]=t;});
@@ -7490,6 +7501,7 @@ function _svTun(raw,list,force,res){
     ['naqd','hr','payme1','payme2','karta'].map(function(k){return _svR(o[k]);}).join(',')].join('|');};
   var cur=function(i){var d=D[i]||{},b=B[i]||{};var s=0;['c','d','e','f','g','h','i','j','k','l'].forEach(function(k){s+=_svR(d[k]);});return [_svR(b.summa),_svR(b.tolandi),_svR(b.ustaga),s,(b.nom||'')].join('|');};
   var put=function(i,t){
+    while(D.length<i)D.push({c:0,d:0,e:0,f:0,g:0,h:0,i:0,j:0,k:0,l:0}); while(B.length<i)B.push({nom:'',kv:0,narx:0,summa:0,oldingi:0,tolandi:0,ustaga:0});
     var d=D[i]||(D[i]={}),b=B[i]||(B[i]={});
     ['c','d','e','f','g','h','i','j','k','l'].forEach(function(k){d[k]=0;});
     d.sana=_svSana(t.sana);d.nom=t.izoh||('Tunikafon · '+(t.xodim||''));
