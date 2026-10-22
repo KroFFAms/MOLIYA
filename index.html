@@ -4432,6 +4432,7 @@ function xkPull(){
       if(!x){topilmadi.push(e.nom||'(nomsiz)');return;}
       mos++;
       if(cId)e.xid=String(x[cId]);
+      if(x.lavozim&&!String(e.lavozim||'').trim()){e.lavozim=String(x.lavozim);}
       if(x.oylik_bolim&&String(e.bolim||'')!==String(x.oylik_bolim)){e.bolim=String(x.oylik_bolim);bolN++;}
       if(cFik&&(Number(x[cFik])||0)&&!(Number(e.fiks)||0)){e.fiks=Number(x[cFik])||0;fiksN++;}
       if(cId&&dRef&&dSan){var kk=kunMap[String(x[cId])];e.kun=kk?Object.keys(kk).length:0;if(kk)kunN++;}
