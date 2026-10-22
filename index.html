@@ -7535,7 +7535,7 @@ function _svTun(raw,list,force,res){
 function _svXq(raw,rows,force,res){
   var yangi=0,tol=0;
   var _dn=_svDan(),yE=0,tE=0;
-  rows.forEach(function(r){var a=(+r.mq_yangi||0),b=(+r.q_naqd||0)+(+r.q_karta||0)+(+r.q_payme1||0)+(+r.q_payme2||0)+(+r.q_bank||0);
+  rows.forEach(function(r){var a=(+r.mq_yangi||0),b=(+r.q_naqd||0)+(+r.q_karta||0)+(+r.q_payme1||0)+(+r.q_payme2||0)+(+r.q_bank||0)+(+r.q_nomalum||0);
     if(String(r.kun)<_dn){yE+=a;tE+=b;}else{yangi+=a;tol+=b;}});
   if(!raw.xaridor_qarz)raw.xaridor_qarz={oldingi:0,yangi:0,tolandi:0};
   var xq=raw.xaridor_qarz, sv=xq._sv||{};
