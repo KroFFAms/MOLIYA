@@ -4426,12 +4426,13 @@ function xkPull(){
     }
     /* moslashtirish */
     var byKey={};xs.forEach(function(x){byKey[_empKey(x[cNom])]=x;});
-    var emps=ENTRY.employees||[],mos=0,kunN=0,fiksN=0,topilmadi=[];
+    var emps=ENTRY.employees||[],mos=0,kunN=0,fiksN=0,bolN=0,topilmadi=[];
     emps.forEach(function(e){
       var x=byKey[_empKey(e.nom)];
       if(!x){topilmadi.push(e.nom||'(nomsiz)');return;}
       mos++;
       if(cId)e.xid=String(x[cId]);
+      if(x.oylik_bolim&&String(e.bolim||'')!==String(x.oylik_bolim)){e.bolim=String(x.oylik_bolim);bolN++;}
       if(cFik&&(Number(x[cFik])||0)&&!(Number(e.fiks)||0)){e.fiks=Number(x[cFik])||0;fiksN++;}
       if(cId&&dRef&&dSan){var kk=kunMap[String(x[cId])];e.kun=kk?Object.keys(kk).length:0;if(kk)kunN++;}
     });
@@ -4440,10 +4441,10 @@ function xkPull(){
     var yangi=xs.filter(function(x){return !curKeys[_empKey(x[cNom])];}).map(function(x){return x[cNom];});
     renderEntry();try{autoSaveEntrySilent();}catch(x2){}
     var h='<div style="background:#E2EFDA;border:1px solid #a9d18e;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px">'+
-      '\u2705 <b>'+mos+'</b> xodim moslashtirildi \u00b7 <b>'+kunN+'</b> tasiga ish kuni yozildi \u00b7 <b>'+fiksN+'</b> tasiga fiks oylik olindi.</div>';
+      '\u2705 <b>'+mos+'</b> xodim moslashtirildi \u00b7 <b>'+kunN+'</b> tasiga ish kuni yozildi \u00b7 <b>'+fiksN+'</b> tasiga fiks oylik olindi'+(bolN?' \u00b7 <b>'+bolN+'</b> tasining oylik bo\u2019limi yangilandi':'')+'.</div>';
     if(!dRef||!dSan)h+='<div style="background:#FCE4D6;border:1px solid #f4a68a;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#a32d2d">\u26a0\ufe0f davomat jadvalidan sana yoki xodim ustuni topilmadi \u2014 ish kunlari olinmadi. Ustunlar: <code>'+Object.keys(d0).join(', ')+'</code></div>';
     if(topilmadi.length)h+='<div style="font-size:12px;margin-bottom:10px"><b style="color:#a32d2d">Tizimda topilmadi ('+topilmadi.length+'):</b> '+topilmadi.join(', ')+'</div>';
-    window._xkYangi=xs.filter(function(x){return !curKeys[_empKey(x[cNom])];}).map(function(x){return {nom:x[cNom],bolim:x[cBol]||'',fiks:Number(x[cFik])||0,xid:cId?String(x[cId]):''};});
+    window._xkYangi=xs.filter(function(x){return !curKeys[_empKey(x[cNom])];}).map(function(x){return {nom:x[cNom],bolim:x.oylik_bolim||x[cBol]||'',fiks:Number(x[cFik])||0,xid:cId?String(x[cId]):''};});
     if(yangi.length)h+='<div style="font-size:12px;margin-bottom:10px"><b style="color:#1F4E79">Tizimda bor, bu oyda yo\u2019q ('+yangi.length+'):</b> '+yangi.join(', ')+
       ' <button onclick="xkAddYangi()" style="background:#375623;color:#fff;border:none;border-radius:5px;padding:3px 9px;font-size:11px;cursor:pointer;margin-left:6px">\u2795 Ro\u2019yxatga qo\u2019shish</button></div>';
     h+='<div style="font-size:11px;color:#888">Aniqlangan ustunlar \u2014 xodim: <code>'+[cNom,cBol,cFik,cId].filter(Boolean).join(', ')+'</code>; davomat: <code>'+[dRef,dSan,dKel].filter(Boolean).join(', ')+'</code>.<br>Endi \u201c\ud83e\uddee Tabeldan hisoblash\u201d tugmasini bosing \u2014 nachisleniya fiks \u00d7 kun \u00f7 norma bo\u2019yicha yoziladi.</div>';
@@ -10484,6 +10485,8 @@ function xForm(id,pre){
     '<label>Baholash turi</label><select id="xfTur">'+
       '<option value="daromadli"'+(x.baho_turi!=='qollab'?' selected':'')+'>Daromadli (intizom 30 + vazifa 40 + natija 30)</option>'+
       '<option value="qollab"'+(x.baho_turi==='qollab'?' selected':'')+'>Qo‘llab-quvvatlovchi (intizom 40 + vazifa 60)</option></select>'+
+    '<label>💰 Oylik qaysi bo\u2018limdan to\u2018lanadi (Moliya)</label><select id="xfOb">'+
+      ['','magazin','tunikafon','penablok','birja'].map(function(v){return '<option value="'+v+'"'+((x.oylik_bolim||'')===v?' selected':'')+'>'+(v?v:'Bo\u2018lim bilan bir xil')+'</option>';}).join('')+'</select>'+
     '<label>Telefon</label><input id="xfTel" value="'+xesc(x.tel||'')+'">'+
     '<label>Bo\u2018lim boshlig\u2018i (vazifalarni tasdiqlaydi)</label><select id="xfRah">'+
       '<option value="0"'+(x.rahbar?'':' selected')+'>Yo\u2018q</option>'+
@@ -10505,6 +10508,7 @@ function xSave(id){
     tel:x$('xfTel').value.trim()||null, faol:x$('xfFaol').value==='1' };
   var _tv=(x$('xfTun')?x$('xfTun').value==='1':false), _ox=id?XLIST.filter(function(a){return a.id===id})[0]:null;
   if(_tv||(_ox&&('tun_kirim' in _ox))) row.tun_kirim=_tv;
+  var _ob=x$('xfOb')?x$('xfOb').value:''; if(_ob||(_ox&&('oylik_bolim' in _ox))) row.oylik_bolim=_ob||null;
   sbPost('xodim',[row],true,true).then(function(){
     var i=XLIST.findIndex(function(a){return a.id===row.id});
     if(i>=0) XLIST[i]=row; else XLIST.push(row);
