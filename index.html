@@ -206,6 +206,14 @@ tr.sof td.q-val{background:#375623;color:#fff;font-size:14px}
 #xkRoot .btn.bad{background:var(--bad)}
 #xkRoot .btn.warn{background:var(--warn);color:#2a1c00}
 #xkRoot .btn:disabled{opacity:.45}
+#xkRoot .bgNav{display:inline-flex;align-items:center;gap:6px;vertical-align:middle;margin-left:8px;font-weight:500}
+#xkRoot .bgNav button{width:32px;height:32px;padding:0;border:1px solid #e3e6ef;background:#fff;color:#5b3fe0;border-radius:50%;font-size:18px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .15s}
+#xkRoot .bgNav button:hover:not(:disabled){background:#f0edff}
+#xkRoot .bgNav button:disabled{opacity:.35;cursor:default}
+#xkRoot .bgNav button.bgT{width:auto;padding:0 12px;border-radius:16px;font-size:12px;font-weight:600}
+#xkRoot .bgD{position:relative;display:inline-flex;align-items:center;height:32px;padding:0 14px;border:1px solid #e3e6ef;border-radius:16px;background:#fff;font-size:13px;font-weight:600;color:#2b2f45;cursor:pointer}
+#xkRoot .bgD:hover{background:#f7f6ff}
+#xkRoot .bgD input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
 #xkRoot .btn.sm{width:auto;padding:8px 12px;font-size:13px;border-radius:9px}
 #xkRoot .row{display:flex;gap:8px;align-items:center}
 #xkRoot .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
@@ -2489,6 +2497,7 @@ function render(){
       </div>`;
     });
     h1+=`</div>`;
+    h1+=`<div id="hsXod"></div>`;
 
     // ══ TAB 2–2d: BO'LIMLAR ALOHIDA ══
     renderMagazinInner(years,y,od,oys,T,n,tblHeader,buildKCQ,qcls,fmt);
@@ -2497,6 +2506,7 @@ function render(){
     renderPenablokInner(years,y,od,oys,T,n,tblHeader,buildKCQ,qcls,fmt);
   });
 
+  setTimeout(function(){_hsXodCiz(0);},60);
   // TAB 3 — Xaridlar va Qarzlar
   var h3='';
   years.forEach(function(y){
@@ -4546,6 +4556,32 @@ function _kadrMatch(emps,xs,cNom,cId){
     res.push({i:i,e:e,x:x});
   });
   return res;
+}
+/* Umumiy hisobotda xodimlar bloki (Xodimlar tizimidan) */
+var _hsXodD=null,_hsXodBusy=false;
+function _hsXodCiz(n){
+  var el=document.getElementById('hsXod');
+  if(!el){ if((n||0)<10) setTimeout(function(){_hsXodCiz((n||0)+1);},150); return; }
+  if(!_hsXodD){
+    el.innerHTML='<div class="slbl">Xodimlar</div><div style="color:#888;font-size:12px;padding:6px 2px">\u231b yuklanmoqda\u2026</div>';
+    if(_hsXodBusy) return; _hsXodBusy=true;
+    _xkFetch('xodim','select=*').then(function(r){_hsXodD=r||[];_hsXodBusy=false;_hsXodCiz(0);})
+      .catch(function(e){_hsXodBusy=false;var q=document.getElementById('hsXod');if(q)q.innerHTML='<div class="slbl">Xodimlar</div><div style="color:#a32d2d;font-size:12px">\u26a0\ufe0f '+String(e.message||e).slice(0,100)+'</div>';});
+    return;
+  }
+  var xs=_hsXodD.filter(function(x){return x.faol!==false;}), g={}, jami=0;
+  xs.forEach(function(x){var b=String(x.oylik_bolim||x.bolim||'').trim()||'\u2014'; (g[b]=g[b]||[]).push(x); jami+=Number(x.fiks)||0;});
+  var f=function(v){return Math.round(v).toLocaleString('ru-RU');};
+  var h='<div class="slbl">Xodimlar</div><div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">'+
+    '<div class="mc" style="min-width:150px"><div class="mn">Faol xodim</div><div style="font-size:22px;font-weight:700;color:#1F4E79">'+xs.length+'</div></div>'+
+    '<div class="mc" style="min-width:190px"><div class="mn">Fiks oylik jami</div><div style="font-size:22px;font-weight:700;color:#375623">'+f(jami)+'</div></div>'+
+    '<div class="mc" style="min-width:150px"><div class="mn">Bo\u2018limlar</div><div style="font-size:22px;font-weight:700;color:#1F4E79">'+Object.keys(g).length+'</div></div></div>'+
+    '<div style="background:#fff;border-radius:12px;border:1px solid #dce7f5;padding:14px 18px;margin-bottom:16px;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:480px">'+
+    '<tr style="background:#EEF4FB"><th style="padding:8px 10px;text-align:left">Bo\u2018lim</th><th style="padding:8px 10px;text-align:left">Xodimlar</th><th style="padding:8px 10px;text-align:right">Soni</th><th style="padding:8px 10px;text-align:right">Fiks jami</th></tr>';
+  Object.keys(g).sort().forEach(function(b){var L=g[b],t=0;L.forEach(function(x){t+=Number(x.fiks)||0;});
+    h+='<tr style="border-bottom:1px solid #f0f0f0"><td style="padding:7px 10px;font-weight:600">'+b+'</td><td style="padding:7px 10px;color:#555">'+L.map(function(x){return String(x.ism||'').replace(/</g,'&lt;');}).join(', ')+'</td><td style="padding:7px 10px;text-align:right">'+L.length+'</td><td style="padding:7px 10px;text-align:right;font-weight:600">'+f(t)+'</td></tr>';});
+  h+='</table><div style="margin-top:8px"><button onclick="xkOpen(\'boss\')" style="background:#5b3fe0;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer">\ud83d\udc65 Xodimlar tizimini ochish</button></div></div>';
+  el.innerHTML=h;
 }
 function kadrPull(silent,ym0){
   var ym=ym0||_kadrYM(),raw=(DB[ym.y]&&DB[ym.y][ym.m-1]&&DB[ym.y][ym.m-1]._raw)||null;
@@ -9429,10 +9465,12 @@ function _bugunBlok(sana){
       }); }
   }
   var bugunS=new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
-  var sel='<span style="display:inline-flex;gap:4px;align-items:center">'+
-    '<button class="btn sm" onclick="_bgSurish(\''+kun+'\',-1)" style="padding:2px 8px">\u2039</button>'+
-    '<input type="date" value="'+kun+'" max="'+bugunS+'" onchange="if(this.value)x$(\'bgBlok\').outerHTML=_bugunBlok(this.value)" style="font-size:12px;padding:4px 6px;border-radius:6px">'+
-    '<button class="btn sm" onclick="_bgSurish(\''+kun+'\',1)" style="padding:2px 8px"'+(kun>=bugunS?' disabled':'')+'>\u203a</button></span>';
+  var _OY=['yan','fev','mar','apr','may','iyun','iyul','avg','sen','okt','noy','dek'], _HK=['Yakshanba','Dushanba','Seshanba','Chorshanba','Payshanba','Juma','Shanba'];
+  var _dt=new Date(kun+'T12:00:00Z'), _mat=_dt.getUTCDate()+' '+_OY[_dt.getUTCMonth()]+' '+_dt.getUTCFullYear()+' \u00b7 '+(kun===bugunS?'Bugun':_HK[_dt.getUTCDay()]);
+  var sel='<span class="bgNav"><button type="button" onclick="_bgSurish(\''+kun+'\',-1)" aria-label="Oldingi kun">\u2039</button>'+
+    '<label class="bgD"><span>'+_mat+'</span><input type="date" value="'+kun+'" max="'+bugunS+'" onclick="try{this.showPicker()}catch(e){}" onchange="if(this.value)x$(\'bgBlok\').outerHTML=_bugunBlok(this.value)"></label>'+
+    '<button type="button" onclick="_bgSurish(\''+kun+'\',1)" aria-label="Keyingi kun"'+(kun>=bugunS?' disabled':'')+'>\u203a</button>'+
+    (kun!==bugunS?'<button type="button" class="bgT" onclick="x$(\'bgBlok\').outerHTML=_bugunBlok()">Bugun</button>':'')+'</span>';
   if(!rs.length) return '<div id="bgBlok" class="card"><h3>\ud83d\udcc5 Kunlik savdo kesimi \u00b7 '+sel+'</h3><div class="mut">Bu kun uchun kiritilgan mijoz soni / savdo yo\u2018q. Xodim "KETDIM" bosganda kiritadi.</div></div>';
   var grp={};
   rs.forEach(function(d){var x=XLIST.filter(function(a){return a.id===d.xodim_id;})[0]; if(!x) return; var b=(x.bolim||'').trim()||'\u2014';
