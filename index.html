@@ -7985,6 +7985,9 @@ function qFlush(){
 /* ================= HOLAT ================= */
 var XBOSS=false;
 var XLIST=[], XSOZ={}, XME=null, XADMKEY='', XDAV=[], XVAZ=[], XNAT=[], XQOSH=[], XSHAB=[];
+/* Bo'limga qarab ish boshlanish vaqti: XSOZ.vaqt={bolim:{boshi:'09:00',oxiri:'18:00'}}; bo'sh bo'lsa umumiy vaqt */
+function ishBoshi(b){var v=(XSOZ.vaqt||{})[String(b||'').trim().toLowerCase()];return (v&&v.boshi)||XSOZ.ish_boshi||'08:30';}
+function ishOxiri(b){var v=(XSOZ.vaqt||{})[String(b||'').trim().toLowerCase()];return (v&&v.oxiri)||XSOZ.ish_oxiri||'18:00';}
 var XDEF_SOZ={
   ish_boshi:'08:30', ish_oxiri:'18:00', bonus_daq:10, ish_kuni:26,
   lat:0, lng:0, radius:250, gps_majburiy:false, dam_kun:0,
@@ -8280,7 +8283,7 @@ function punch(tur){
     }
     var b=bugun(), t=hozir(), cur=myToday();
     if(tur==='in'){
-      var kech=Math.max(0,m2d(t)-m2d(XSOZ.ish_boshi));
+      var kech=Math.max(0,m2d(t)-m2d(ishBoshi(XME.bolim)));
       var row={id:XME.id+'_'+b, xodim_id:XME.id, ism:XME.ism, bolim:XME.bolim, sana:b, kelgan:t,
         kech_min:kech, lat_in:lat, lng_in:lng, masofa_m:m, status:'keldi'};
       XDAV.unshift(row); renderDav();
@@ -8691,7 +8694,7 @@ function tunDavSave(xid){
   if(err){ e.textContent=err; e.classList.remove('hide'); return; }
   var iz=(x$('tdIz').value||'').trim();
   var row={id:xid+'_'+sana, xodim_id:xid, ism:x.ism, bolim:x.bolim, sana:sana, status:'keldi', kelgan:kel, ketgan:ket||null,
-    kech_min:Math.max(0,m2d(kel)-m2d(XSOZ.ish_boshi||'08:30')), ish_soat:ket?Math.round((m2d(ket)-m2d(kel))/60*100)/100:null,
+    kech_min:Math.max(0,m2d(kel)-m2d(ishBoshi(x.bolim))), ish_soat:ket?Math.round((m2d(ket)-m2d(kel))/60*100)/100:null,
     izoh:(iz?iz+' ':'')+'(tuzatdi: '+XME.ism+')'};
   sbPost('davomat',[row],false,true).then(function(){
     var i=XTUN_DAVR.findIndex(function(a){return a.id===row.id;});
@@ -9795,14 +9798,33 @@ function shYarat(){
 
 /* ================= KELMAGANLAR + TELEGRAM ================= */
 function kelmaganlar(){
-  var b=bugun(), hozirD=m2d(hozir()), boshD=m2d(XSOZ.ish_boshi||'08:30');
-  if(hozirD < boshD + (+XSOZ.bonus_daq||0)) return [];
+  var b=bugun(), hozirD=m2d(hozir());
   var w=new Date().getDay(); if(w===XSOZ.dam_kun) return [];
   return XLIST.filter(function(x){
     if(x.faol===false) return false;
+    if(hozirD < m2d(ishBoshi(x.bolim)) + (+XSOZ.bonus_daq||0)) return false;
     var r=XDAV.filter(function(a){return a.xodim_id===x.id&&a.sana===b;})[0];
     return !(r&&r.kelgan);
   });
+}
+/* Bugun keldi, lekin ish kuni tugagach (+30 daq) "ketdi" bosmaganlar */
+function ketmaganlar(){
+  var b=bugun(), hozirD=m2d(hozir());
+  return XDAV.filter(function(r){
+    if(r.sana!==b||!r.kelgan||r.ketgan) return false;
+    var x=XLIST.filter(function(a){return a.id===r.xodim_id;})[0];
+    if(!x||x.faol===false) return false;
+    return hozirD>=m2d(ishOxiri(x.bolim))+30;
+  }).map(function(r){var x=XLIST.filter(function(a){return a.id===r.xodim_id;})[0];return {ism:x.ism,bolim:x.bolim,oxiri:ishOxiri(x.bolim)};});
+}
+/* Ish kuni tugashidan 15 daqiqadan ko'p oldin ketganlar (faqat ma'lumot) */
+function ertaKetganlar(){
+  var b=bugun();
+  return XDAV.filter(function(r){
+    if(r.sana!==b||!r.ketgan) return false;
+    var x=XLIST.filter(function(a){return a.id===r.xodim_id;})[0];
+    return x&&m2d(r.ketgan)<m2d(ishOxiri(x.bolim))-15;
+  }).map(function(r){var x=XLIST.filter(function(a){return a.id===r.xodim_id;})[0];return {ism:x.ism,bolim:x.bolim,ketgan:r.ketgan,oxiri:ishOxiri(x.bolim)};});
 }
 function tgYubor(){
   var tok=(typeof SOZ!=='undefined'&&SOZ.tg_token)||'', chat=(typeof SOZ!=='undefined'&&SOZ.tg_chatid)||'';
@@ -9814,6 +9836,8 @@ function tgYubor(){
     msg+='\u274c Kelmaganlar ('+ks.length+'):\n';
     ks.forEach(function(x){ msg+='\u2022 '+x.ism+' \u2014 '+(x.bolim||'')+'\n'; });
   }
+  var _km=ketmaganlar(); if(_km.length){ msg+='\n\ud83d\udeaa "Ketdi" bosmaganlar:\n'; _km.forEach(function(x){ msg+='\u2022 '+x.ism+' \u2014 ish '+x.oxiri+' da tugagan\n'; }); }
+  var _ek=ertaKetganlar(); if(_ek.length){ msg+='\n\u23ea Erta ketganlar:\n'; _ek.forEach(function(x){ msg+='\u2022 '+x.ism+' \u2014 '+x.ketgan+' (ish '+x.oxiri+' gacha)\n'; }); }
   var kech=XDAV.filter(function(r){return r.sana===bugun()&&(r.kech_min||0)>(+XSOZ.bonus_daq||0);});
   if(kech.length){
     msg+='\n\u23f1 Kech qolganlar:\n';
@@ -9895,6 +9919,11 @@ function aHisob(){
       _ks.map(function(x){return xesc(x.ism)+' <span class="mut">('+xesc(x.bolim||'')+')</span>';}).join(', ')+
       '<div style="height:8px"></div><button class="btn sm g" onclick="tgYubor()">\ud83d\udce8 Telegramga yuborish</button></div>'
     : '';
+  var _km2=ketmaganlar(), _ek2=ertaKetganlar();
+  if(_km2.length) _alert+='<div class="warnbox" style="background:rgba(244,189,106,.12);border-color:rgba(244,189,106,.4);color:#f4bd6a"><b>\ud83d\udeaa \u201cKetdi\u201d bosmaganlar: '+_km2.length+'</b><br>'+
+    _km2.map(function(x){return xesc(x.ism)+' <span class="mut">('+xesc(x.bolim||'')+', ish '+x.oxiri+' da tugagan)</span>';}).join(', ')+'</div>';
+  if(_ek2.length) _alert+='<div class="warnbox"><b>\u23ea Erta ketganlar: '+_ek2.length+'</b><br>'+
+    _ek2.map(function(x){return xesc(x.ism)+' <span class="mut">('+x.ketgan+', ish '+x.oxiri+' gacha)</span>';}).join(', ')+'</div>';
   x$('admView').innerHTML=davrBar()+_alert+_bugunBlok()+top+bol+xod+
     '<div class="mut" style="margin:0 0 12px">Qatorni bosing — bitta xodimning batafsil hisobi.</div>'+
     '<button class="btn g" onclick="eksport()">📤 Excel (CSV) yuklash</button>';
@@ -10010,7 +10039,7 @@ function davSave(xid,sana){
   var st=x$('deSt').value, kel=x$('deIn').value.trim(), ket=x$('deOut').value.trim();
   var row={id:xid+'_'+sana, xodim_id:xid, ism:x.ism, bolim:x.bolim, sana:sana, status:st,
     kelgan:kel||null, ketgan:ket||null, izoh:x$('deIz').value.trim()||null,
-    kech_min: (st==='keldi'&&kel)?Math.max(0,m2d(kel)-m2d(XSOZ.ish_boshi)):0,
+    kech_min: (st==='keldi'&&kel)?Math.max(0,m2d(kel)-m2d(ishBoshi(x.bolim))):0,
     ish_soat: (kel&&ket)?Math.round((m2d(ket)-m2d(kel))/60*100)/100:null};
   sbPost('davomat',[row],true,true).then(function(){
     var i=XDAV.findIndex(function(a){return a.id===row.id});
@@ -10570,6 +10599,10 @@ function aSoz(){
       ['Yakshanba','Dushanba','Seshanba','Chorshanba','Payshanba','Juma','Shanba'].map(function(n,i){
         return '<option value="'+i+'"'+(XSOZ.dam_kun===i?' selected':'')+'>'+n+'</option>'}).join('')+'</select>'+
     '</div>'+
+    '<div class="card"><h3>🕘 Bo\u2018limlar bo\u2018yicha ish vaqti</h3><div class="mut" style="margin-bottom:8px">Bo\u2018sh qoldirsangiz umumiy vaqt ('+xesc(XSOZ.ish_boshi)+' – '+xesc(XSOZ.ish_oxiri)+') ishlaydi. Kechikish shu bo\u2018limning boshlanish vaqtiga qarab hisoblanadi.</div>'+
+      bolimlar().map(function(bn,bi){var v=(XSOZ.vaqt||{})[String(bn).trim().toLowerCase()]||{};
+        return '<div class="grid2" style="align-items:end;margin-bottom:6px"><div><label>'+xesc(bn)+' — boshlanishi</label><input id="svB'+bi+'" data-b="'+xesc(bn)+'" placeholder="'+xesc(XSOZ.ish_boshi)+'" value="'+xesc(v.boshi||'')+'"></div>'+
+          '<div><label>tugashi</label><input id="svO'+bi+'" placeholder="'+xesc(XSOZ.ish_oxiri)+'" value="'+xesc(v.oxiri||'')+'"></div></div>';}).join('')+'</div>'+
     '<div class="card"><h3>Joylashuv nazorati</h3>'+
     '<div class="grid2"><div><label>Kenglik (lat)</label><input id="szLa" value="'+(XSOZ.lat||'')+'"></div>'+
     '<div><label>Uzunlik (lng)</label><input id="szLo" value="'+(XSOZ.lng||'')+'"></div></div>'+
@@ -10709,7 +10742,11 @@ function szSave(){
     });
     if(Object.keys(o).length) ball_bolim[bn]=o;
   });
-  var s={ball_bolim:ball_bolim,kunlik:kunlik,ish_boshi:x$('szB').value.trim(),ish_oxiri:x$('szO').value.trim(),bonus_daq:+x$('szBn').value||0,
+  var vaqt={};
+  bolimlar().forEach(function(bn,bi){ var eb=x$('svB'+bi),eo=x$('svO'+bi); if(!eb)return;
+    var vb=eb.value.trim(), vo=eo?eo.value.trim():'';
+    if(vb||vo) vaqt[String(bn).trim().toLowerCase()]={boshi:vb,oxiri:vo}; });
+  var s={ball_bolim:ball_bolim,kunlik:kunlik,vaqt:vaqt,ish_boshi:x$('szB').value.trim(),ish_oxiri:x$('szO').value.trim(),bonus_daq:+x$('szBn').value||0,
     ish_kuni:+x$('szIk').value||26,dam_kun:+x$('szDk').value,lat:+x$('szLa').value||0,lng:+x$('szLo').value||0,
     radius:+x$('szR').value||250,gps_majburiy:x$('szG').value==='1',gps_ozod:(x$('szGO')?x$('szGO').value.split(',').map(function(t){return t.trim().toLowerCase();}).filter(Boolean):(XSOZ.gps_ozod||[])),vaz_gps:(x$('szVG')?x$('szVG').value==='1':undefined),tasdiq_soat:(+x$('szTS').value||24),naz_min:(+x$('szNM').value||2),ball_usul:(x$('szBU')?x$('szBU').value:'foiz'),ball_mukofot:(x$('szBM')?x$('szBM').value==='1':false),qosh_max_foiz:(x$('szQM')?(+x$('szQM').value||0):10),band:band,davomat_boshi:(x$('szDB')?x$('szDB').value:(XSOZ.davomat_boshi||'')),nuqtalar:szNRead().filter(function(n){return n.lat&&n.lng;})};
   window._szN=null;
