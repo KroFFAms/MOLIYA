@@ -7379,10 +7379,15 @@ function svFarqHal(ids,mode){
   var f=window._svFarqL||[], ent=!!ENTRY, y=ent?String(ENTRY.year):null, m=ent?Number(ENTRY.month):null;
   var raw=ENTRY; if(!raw){toast&&toast('Avval Kiritishni oching');return;}
   var days=(raw.magazin&&raw.magazin.days)||[], n=0;
+  if(mode==='savdo'){
+    var _lost=0,_lc=0; ids.forEach(function(i){var x=f[i];if(x&&!x._hal&&(+x.qolda||0)>(+x.savdo||0)){_lost+=(+x.qolda||0)-(+x.savdo||0);_lc++;}});
+    if(_lc&&!confirm('\u26a0\ufe0f '+_lc+' ta katakda qo\u2019lda yozgan summangiz kamayadi (jami '+fmt(_lost)+' so\u2019m o\u2019chadi).\n\nEski summalar jurnalga yoziladi va keyin tiklash mumkin.\n\nDavom etamizmi?'))return;
+    if(!raw._svJurnal)raw._svJurnal=[];
+  }
   ids.forEach(function(i){var x=f[i];if(!x||x._hal)return;
     var dd=null;for(var j=0;j<days.length;j++){if(_normSana(days[j].sana,y,m)===x.sana){dd=days[j];break;}}
     if(!dd)return; if(!dd._sv)dd._sv={};
-    if(mode==='savdo')dd[x.k]=x.savdo;
+    if(mode==='savdo'){ try{raw._svJurnal.push({t:Date.now(),sana:x.sana,k:x.k,eski:+x.qolda||0,yangi:+x.savdo||0}); if(raw._svJurnal.length>300)raw._svJurnal.splice(0,raw._svJurnal.length-300);}catch(e){} dd[x.k]=x.savdo; }
     dd._sv[x.k]=x.savdo; x._hal=1; n++;
     var tr=document.getElementById('svfq'+i); if(tr){tr.style.opacity='.4';var c=tr.lastChild;if(c)c.innerHTML=mode==='savdo'?'✅ savdodagi':'✅ qo’lda qoldi';}
   });
@@ -7411,6 +7416,41 @@ function _svMakeRaw(y,m){
   finally{ENTRY=keep.E;if(ye&&keep.y!=null)ye.value=keep.y;if(me&&keep.m!=null)me.value=keep.m;}
   return out;
 }
+/* ---- 23-okt: "Savdodagi" bosilganda o'chib ketgan qo'lda yozilgan qarz to'lovlarini (zaxiradan olingan) qaytarish ---- */
+var _TIKLA_OKT=[["01.10.2026","e",11145000],["01.10.2026","g",1087000],["01.10.2026","h",6840000],["02.10.2026","e",2430000],["02.10.2026","h",1720000],["03.10.2026","e",7219000],["03.10.2026","h",6150000],["04.10.2026","g",315000],["04.10.2026","h",4080000],["05.10.2026","e",3500000],["05.10.2026","g",1165000],["05.10.2026","h",12662000],["06.10.2026","e",6521000],["06.10.2026","h",9942000],["07.10.2026","c",44714750],["07.10.2026","e",17800000],["07.10.2026","g",700000],["07.10.2026","h",2530000],["08.10.2026","e",2036000],["08.10.2026","h",11265000],["09.10.2026","e",890000],["09.10.2026","h",5830000],["10.10.2026","h",1195000],["11.10.2026","e",1000000],["11.10.2026","h",9300000],["12.10.2026","e",7674000]];
+function _tiklaRaw(){ var ent=(typeof ENTRY!=='undefined'&&ENTRY&&String(ENTRY.year)==='2026'&&Number(ENTRY.month)===10)?ENTRY:null; return ent||(DB[2026]&&DB[2026][9]&&DB[2026][9]._raw)||null; }
+function _tiklaTopilgan(raw){
+  var days=(raw&&raw.magazin&&raw.magazin.days)||[], out=[];
+  _TIKLA_OKT.forEach(function(r){ var dd=null; for(var i=0;i<days.length;i++){ if(_normSana(days[i].sana,2026,10)===r[0]){dd=days[i];break;} }
+    if(dd&&!(Math.round(Number(dd[r[1]])||0))) out.push([dd,r[1],r[2]]); });
+  return out;
+}
+function _tiklaTekshir(n){
+  try{
+    if(localStorage.getItem('moliya_tikla_okt23'))return;
+    if(window._mPull!==1){ if((n||0)<12) setTimeout(function(){_tiklaTekshir((n||0)+1);},2500); return; }
+    var raw=_tiklaRaw(); if(!raw)return;
+    var L=_tiklaTopilgan(raw); if(!L.length){ localStorage.setItem('moliya_tikla_okt23','yoq'); return; }
+    var jami=L.reduce(function(s,x){return s+x[2];},0);
+    var el=document.createElement('div'); el.id='tiklaBan';
+    el.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9998;max-width:380px;background:#fff;border:2px solid #9C5700;border-radius:12px;padding:14px 16px;box-shadow:0 6px 24px rgba(0,0,0,.25);font-size:13px';
+    el.innerHTML='<b style="color:#9C5700">\u26a0\ufe0f Oktabr: '+L.length+' ta katak o\u2019chib ketgan</b><div style="margin:6px 0;color:#444">23-oktabr ertalab "Savdodagi" tugmasi qo\u2019lda yozilgan qarz to\u2019lovlarini (naqd, karta, Payme1, HR) o\u2019chirgan. Zaxiradan topildi, jami <b>'+fmt(jami)+'</b> so\u2019m. Faqat shu bo\u2019sh qolgan kataklar qaytariladi, bugungi boshqa ishlaringiz o\u2019zgarmaydi.</div>'+
+      '<button onclick="_tiklaQil()" style="background:#1F7A3D;color:#fff;border:0;border-radius:8px;padding:7px 14px;font-weight:700;cursor:pointer">\u21a9 Qaytarish</button> '+
+      '<button onclick="document.getElementById(\'tiklaBan\').remove()" style="background:#eee;border:0;border-radius:8px;padding:7px 12px;cursor:pointer">Keyinroq</button>';
+    document.body.appendChild(el);
+  }catch(e){}
+}
+function _tiklaQil(){
+  var raw=_tiklaRaw(); if(!raw){alert('Oktabr topilmadi');return;}
+  var L=_tiklaTopilgan(raw); if(!L.length){alert('Qaytariladigan katak qolmagan.');return;}
+  L.forEach(function(x){ var dd=x[0],k=x[1]; dd[k]=x[2]; if(!dd._sv)dd._sv={}; dd._sv[k]=0; });
+  try{ if(!raw._svJurnal)raw._svJurnal=[]; raw._svJurnal.push({t:Date.now(),sana:'tiklash',k:'*',eski:0,yangi:L.length}); }catch(e){}
+  try{ _svCommit('2026',9,raw); }catch(e){ try{save();}catch(e2){} }
+  try{localStorage.setItem('moliya_tikla_okt23','1');}catch(e){}
+  var b=document.getElementById('tiklaBan'); if(b)b.remove();
+  alert('\u2705 '+L.length+' ta katak qaytarildi.');
+}
+setTimeout(function(){_tiklaTekshir(0);},5000);
 function savdoOl(opt){
   opt=opt||{};
   if(_svBusy)return;
