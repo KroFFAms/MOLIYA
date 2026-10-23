@@ -9921,6 +9921,10 @@ function aHisob(){
       _ks.map(function(x){return xesc(x.ism)+' <span class="mut">('+xesc(x.bolim||'')+')</span>';}).join(', ')+
       '<div style="height:8px"></div><button class="btn sm g" onclick="tgYubor()">\ud83d\udce8 Telegramga yuborish</button></div>'
     : '';
+  var _sinov=(!XSOZ.davomat_boshi)?'<div class="warnbox" style="background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.45);color:#b45309"><b>\ud83e\uddea Sinov davri</b><br>Keldi-ketdi yozilyapti, lekin kechikish jarimasi, kelmagan kunlar, baho va oylik hisobga olinmaydi.'+
+    '<div style="height:8px"></div><button class="btn sm" onclick="sinovTugadiTez()">\u2705 Sinov tugadi \u2014 bugundan hisobga olish</button></div>'
+    :'<div class="mut" style="margin:0 0 8px">\u2705 Davomat hisobi '+xesc(XSOZ.davomat_boshi)+' dan rasmiy hisoblanadi.</div>';
+  _alert=_sinov+_alert;
   var _km2=ketmaganlar(), _ek2=ertaKetganlar();
   if(_km2.length) _alert+='<div class="warnbox" style="background:rgba(244,189,106,.12);border-color:rgba(244,189,106,.4);color:#f4bd6a"><b>\ud83d\udeaa \u201cKetdi\u201d bosmaganlar: '+_km2.length+'</b><br>'+
     _km2.map(function(x){return xesc(x.ism)+' <span class="mut">('+xesc(x.bolim||'')+', ish '+x.oxiri+' da tugagan)</span>';}).join(', ')+'</div>';
@@ -10582,6 +10586,11 @@ function xSave(id){
 }
 
 /* ---- Sozlamalar ---- */
+function sinovTugadiTez(){
+  if(!confirm('Sinov tugadimi? Bugundan boshlab kechikish, kelmagan kunlar, baho va ish kuni hisobga olinadi.'))return;
+  var d=Object.assign({},XSOZ,{davomat_boshi:bugun()});
+  sbPost('sozlama',[{kalit:'asosiy',data:d}],true,true).then(function(){XSOZ=Object.assign({},XDEF_SOZ,d);toast('Rasmiy hisob boshlandi');aHisob();}).catch(function(e){toast('Saqlanmadi: '+e.message);});
+}
 function szSinovTugadi(){ x$('szDB').value=bugun(); szSave(); }
 function szSinovQayt(){ if(!confirm('Sinov davriga qaytarilsinmi? Davomat jarimasi va baho hisobga olinmay qoladi.'))return; x$('szDB').value=''; szSave(); }
 function aSoz(){
