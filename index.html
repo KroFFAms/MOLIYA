@@ -9798,6 +9798,7 @@ function shYarat(){
 
 /* ================= KELMAGANLAR + TELEGRAM ================= */
 function kelmaganlar(){
+  if(!XSOZ.davomat_boshi||bugun()<String(XSOZ.davomat_boshi)) return []; /* sinov davri: hech kim "kelmagan" sanalmaydi */
   var b=bugun(), hozirD=m2d(hozir());
   var w=new Date().getDay(); if(w===XSOZ.dam_kun) return [];
   return XLIST.filter(function(x){
@@ -9829,6 +9830,7 @@ function ertaKetganlar(){
 function tgYubor(){
   var tok=(typeof SOZ!=='undefined'&&SOZ.tg_token)||'', chat=(typeof SOZ!=='undefined'&&SOZ.tg_chatid)||'';
   if(!tok||!chat) return toast('Telegram sozlanmagan (moliya Sozlamalarida)');
+  if(!XSOZ.davomat_boshi||bugun()<String(XSOZ.davomat_boshi)) return toast('Sinov davri \u2014 Telegramga yuborilmaydi');
   var ks=kelmaganlar();
   var msg='\u23f0 *Davomat* \u2014 '+bugun()+' '+hozir()+'\n\n';
   if(!ks.length) msg+='\u2705 Hamma keldi.';
