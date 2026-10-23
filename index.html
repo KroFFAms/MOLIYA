@@ -2665,6 +2665,29 @@ function render(){
 
     // ── XARIDORLAR QARZ AYLANMASI (ma'lumot) ──
   var xar_blok='';
+  /* Hamma oylar bir jadvalda: xaridorlarga qarzga berilgan va ulardan yig'ilgan qarz */
+  (function(){
+    var OS4=['','Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
+    var f4=function(v){return Math.round(v||0).toLocaleString('ru-RU');};
+    years.forEach(function(y4){
+      var od4=DB[y4]; if(!od4) return;
+      var oy4=Object.keys(od4).filter(function(k){return k!=='_selMon'&&k!=='_oyBosh';}).map(Number).sort(function(a,b){return a-b;});
+      var rr=[],tY=0,tT=0;
+      oy4.forEach(function(mn){var dm=od4[mn]; if(!dm) return;
+        var xy=Number(dm.xar_yangi)||0,xt=Number(dm.xar_tolandi)||0,xo=Number(dm.xar_qarz_oldingi)||0,xq=Number(dm.xar_qoldiq)||0;
+        if(!xy&&!xt&&!xo&&!xq) return;
+        tY+=xy;tT+=xt;rr.push({mn:mn,xo:xo,xy:xy,xt:xt,xq:xq});});
+      if(!rr.length) return;
+      xar_blok+='<div style="background:#fff;border-radius:12px;border:1px solid #dce7f5;padding:18px;margin-bottom:16px;overflow:auto">';
+      xar_blok+='<h3 style="margin:0 0 12px;font-size:14px;color:#1F4E79">👥 Xaridorlar qarzi — oylar kesimida, '+y4+'</h3>';
+      xar_blok+='<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:560px"><tr style="background:#EEF4FB"><th style="padding:8px 10px;text-align:left">Oy</th><th style="padding:8px 10px;text-align:right">Oy boshida qarz</th><th style="padding:8px 10px;text-align:right;color:#C65911">Qarzga berildi</th><th style="padding:8px 10px;text-align:right;color:#375623">Yig\u2019ildi</th><th style="padding:8px 10px;text-align:right">Oy oxirida qarz</th></tr>';
+      rr.forEach(function(r){
+        xar_blok+='<tr style="border-bottom:1px solid #f0f0f0"><td style="padding:7px 10px">'+_OYNM[r.mn]+'</td><td style="padding:7px 10px;text-align:right">'+f4(r.xo)+'</td><td style="padding:7px 10px;text-align:right;color:#C65911">'+f4(r.xy)+'</td><td style="padding:7px 10px;text-align:right;color:#375623">'+f4(r.xt)+'</td><td style="padding:7px 10px;text-align:right;font-weight:700;color:'+(r.xq>0?'#C00000':'#375623')+'">'+f4(r.xq)+'</td></tr>';
+      });
+      xar_blok+='<tr style="background:#EEF4FB;font-weight:700"><td style="padding:8px 10px">JAMI</td><td></td><td style="padding:8px 10px;text-align:right;color:#C65911">'+f4(tY)+'</td><td style="padding:8px 10px;text-align:right;color:#375623">'+f4(tT)+'</td><td></td></tr></table>';
+      xar_blok+='<div style="font-size:11px;color:#888;margin-top:8px;font-style:italic">* Faqat ma\u2019lumot. Umumiy hisobga kirmaydi. Oktabrdan boshlab raqamlar Savdodan avtomatik olinadi.</div></div>';
+    });
+  })();
   years.forEach(function(y2){
     var od2=DB[y2];
     var oys2=Object.keys(od2).filter(function(k){return k!=='_selMon'&&k!=='_oyBosh';}).map(Number).sort(function(a,b){return a-b;});
@@ -2676,7 +2699,7 @@ function render(){
       var xyn=dm.xar_yangi||0, xtl=dm.xar_tolandi||0, xql=dm.xar_qoldiq||0, xol=dm.xar_qarz_oldingi||0;
       var OS3=['','Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
       xar_blok+='<div style="background:#fff;border-radius:12px;border:1px solid #dce7f5;padding:18px;margin-bottom:16px">';
-      xar_blok+='<h3 style="margin:0 0 14px;font-size:14px;color:#1F4E79">👥 Xaridorlar qarz aylanmasi — '+OS3[mn]+' '+y2+'</h3>';
+      xar_blok+='<h3 style="margin:0 0 14px;font-size:14px;color:#1F4E79">👥 Xaridorlar qarz aylanmasi — '+_OYNM[mn]+' '+y2+'</h3>';
       xar_blok+='<table style="width:100%;border-collapse:collapse;font-size:13px">';
       xar_blok+='<tr style="background:#EEF4FB"><th style="padding:8px 14px;text-align:left">Korsatkich</th><th style="padding:8px 14px;text-align:right">Summa (som)</th></tr>';
       var rows3=[
