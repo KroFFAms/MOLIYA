@@ -9414,6 +9414,7 @@ function _svMosla(kun){
   });
   return out;
 }
+function _bgSurish(k,d){var t=new Date(k+'T12:00:00Z');t.setUTCDate(t.getUTCDate()+d);x$('bgBlok').outerHTML=_bugunBlok(t.toISOString().slice(0,10));}
 function _bugunBlok(sana){
   var kun=sana||(new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10));
   var rs=XDAV.filter(function(d){return String(d.sana||'').slice(0,10)===kun&&(d.kun_mijoz!=null||d.kun_raqam!=null||d.kun_js);});
@@ -9427,9 +9428,11 @@ function _bugunBlok(sana){
         if(ex) rs[rs.indexOf(ex)]=v; else rs.push(v);
       }); }
   }
-  var hamma=XDAV.map(function(d){return String(d.sana||'').slice(0,10);}).filter(function(s,i,a){return a.indexOf(s)===i;}).sort().reverse().slice(0,31);
-  var sel='<select onchange="x$(\'bgBlok\').outerHTML=_bugunBlok(this.value)" style="font-size:12px;padding:4px 6px;border-radius:6px">'+
-    (hamma.indexOf(kun)<0?'<option selected>'+kun+'</option>':'')+hamma.map(function(s){return '<option'+(s===kun?' selected':'')+'>'+s+'</option>';}).join('')+'</select>';
+  var bugunS=new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
+  var sel='<span style="display:inline-flex;gap:4px;align-items:center">'+
+    '<button class="btn sm" onclick="_bgSurish(\''+kun+'\',-1)" style="padding:2px 8px">\u2039</button>'+
+    '<input type="date" value="'+kun+'" max="'+bugunS+'" onchange="if(this.value)x$(\'bgBlok\').outerHTML=_bugunBlok(this.value)" style="font-size:12px;padding:4px 6px;border-radius:6px">'+
+    '<button class="btn sm" onclick="_bgSurish(\''+kun+'\',1)" style="padding:2px 8px"'+(kun>=bugunS?' disabled':'')+'>\u203a</button></span>';
   if(!rs.length) return '<div id="bgBlok" class="card"><h3>\ud83d\udcc5 Kunlik savdo kesimi \u00b7 '+sel+'</h3><div class="mut">Bu kun uchun kiritilgan mijoz soni / savdo yo\u2018q. Xodim "KETDIM" bosganda kiritadi.</div></div>';
   var grp={};
   rs.forEach(function(d){var x=XLIST.filter(function(a){return a.id===d.xodim_id;})[0]; if(!x) return; var b=(x.bolim||'').trim()||'\u2014';
