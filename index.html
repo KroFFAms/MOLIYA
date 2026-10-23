@@ -9387,9 +9387,46 @@ function kunUlush(x,r){
   return Math.round((Number(r.kun_raqam)||0)/j*1000)/10;
 }
 /* Rahbar: bir kunning savdo kesimi — mijozlar soni, savdo, ulush, reja % */
+/* ---- Savdo (POS) dan sotuvchi bo'yicha kunlik chek soni va savdo summasi ---- */
+var _svSot={}, _svSotBusy={};
+function _svNorm(t){return String(t||'').toLowerCase().replace(/[^a-z0-9\u0400-\u04ff\u2018\u2019' ]/g,' ').replace(/\s+/g,' ').trim();}
+function _svSotYukla(kun){
+  if(!XBOSS||!XADMKEY||_svSotBusy[kun]) return;
+  _svSotBusy[kun]=1;
+  sbRpc('savdo_sotuvchi_kunlik',{p_from:kun,p_to:kun},true).then(function(rows){
+    var m={}; (rows||[]).forEach(function(r){ m[r.sotuvchi]={chek:+r.chek||0,jami:Math.round(+r.jami||0)}; });
+    _svSot[kun]=m; _svSotBusy[kun]=0;
+    var el=x$('bgBlok'); if(el) el.outerHTML=_bugunBlok(kun);
+  }).catch(function(e){ _svSot[kun]={}; _svSotBusy[kun]=0; _svSotXato=String(e.message||e).slice(0,120); });
+}
+var _svSotXato='';
+/* Savdodagi sotuvchi ismini xodimga moslash: avval "Savdodagi ismi", keyin birinchi so'z bo'yicha (faqat aniq bitta bo'lsa) */
+function _svMosla(kun){
+  var m=_svSot[kun]||{}, out={}, xs=(XLIST||[]).filter(function(x){return x.faol!==false;});
+  Object.keys(m).forEach(function(sn){
+    var n=_svNorm(sn), tk=function(t){return _svNorm(t).split(' ').filter(Boolean).sort().join(' ');}, nt=tk(sn);
+    var c=xs.filter(function(x){return x.savdo_nom&&_svNorm(x.savdo_nom)===n;});
+    /* to'liq ism-familya bir xil bo'lsa (tartibi farq qilsa ham: "Akmalov Alisher" = "Alisher Akmalov") */
+    if(!c.length&&nt.indexOf(' ')>0) c=xs.filter(function(x){return tk(x.ism)===nt;});
+    if(!c.length){ var f=n.split(' ')[0];
+      c=xs.filter(function(x){return !x.savdo_nom&&f.length>=3&&_svNorm(x.ism).split(' ')[0]===f;}); }
+    if(c.length===1) out[c[0].id]=m[sn];
+  });
+  return out;
+}
 function _bugunBlok(sana){
   var kun=sana||(new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10));
   var rs=XDAV.filter(function(d){return String(d.sana||'').slice(0,10)===kun&&(d.kun_mijoz!=null||d.kun_raqam!=null||d.kun_js);});
+  /* Savdo dasturidan kelgan haqiqiy raqamlar qo'lda yozilganining o'rnini bosadi */
+  if(XBOSS&&XADMKEY){
+    if(_svSot[kun]===undefined) _svSotYukla(kun);
+    else { var _mm=_svMosla(kun);
+      Object.keys(_mm).forEach(function(xid){
+        var ex=rs.filter(function(d){return d.xodim_id===xid;})[0];
+        var v=Object.assign({},ex||{xodim_id:xid,sana:kun},{kun_mijoz:_mm[xid].chek,kun_raqam:_mm[xid].jami,_sv:1});
+        if(ex) rs[rs.indexOf(ex)]=v; else rs.push(v);
+      }); }
+  }
   var hamma=XDAV.map(function(d){return String(d.sana||'').slice(0,10);}).filter(function(s,i,a){return a.indexOf(s)===i;}).sort().reverse().slice(0,31);
   var sel='<select onchange="x$(\'bgBlok\').outerHTML=_bugunBlok(this.value)" style="font-size:12px;padding:4px 6px;border-radius:6px">'+
     (hamma.indexOf(kun)<0?'<option selected>'+kun+'</option>':'')+hamma.map(function(s){return '<option'+(s===kun?' selected':'')+'>'+s+'</option>';}).join('')+'</select>';
@@ -9414,7 +9451,7 @@ function _bugunBlok(sana){
           '<td>'+(u!=null?'<b>'+u+'%</b>':'\u2014')+'</td>'+
           '<td>'+(fz!=null?'<span class="pill '+(fz>=100?'p-ok':(fz>=60?'p-w':'p-b'))+'">'+fz+'%</span>':'\u2014')+'</td>':'')+'</tr>';}).join('')+
       '</table></div>';});
-  h+='<div class="mut" style="margin-top:8px">Har bo\u2018lim o\u2018z savollariga javob beradi (Sozlamalar \u2192 Kunlik natija). Ulush \u2014 shu kuni bo\u2018lim savdosidagi hissasi. Reja \u2014 kunlik rejaga nisbatan. Hozircha qo\u2018lda kiritiladi; Savdo dasturi ishga tushgach POS dan o\u2018zi olinadi.</div></div>';
+  h+='<div class="mut" style="margin-top:8px">Har bo\u2018lim o\u2018z savollariga javob beradi (Sozlamalar \u2192 Kunlik natija). Ulush \u2014 shu kuni bo\u2018lim savdosidagi hissasi. Reja \u2014 kunlik rejaga nisbatan. Mijoz (chek) soni va savdo summasi Savdo dasturidan o\u2018zi olinadi (xodimning \u201cSavdodagi ismi\u201d bo\u2018yicha); topilmaganlarda xodim yozgani ko\u2018rinadi.</div></div>';
   return h;
 }
 function kunFoiz(x,r){
@@ -10554,6 +10591,7 @@ function xForm(id,pre){
     '<label>Baholash turi</label><select id="xfTur">'+
       '<option value="daromadli"'+(x.baho_turi!=='qollab'?' selected':'')+'>Daromadli (intizom 30 + vazifa 40 + natija 30)</option>'+
       '<option value="qollab"'+(x.baho_turi==='qollab'?' selected':'')+'>Qo‘llab-quvvatlovchi (intizom 40 + vazifa 60)</option></select>'+
+    '<label>🛒 Savdo dasturidagi ismi (sotuvchi bo\u2018lsa)</label><input id="xfSN" value="'+xesc(x.savdo_nom||'')+'" placeholder="masalan: Alisher Akmalov">'+
     '<label>💰 Oylik qaysi bo\u2018limdan to\u2018lanadi (Moliya)</label><select id="xfOb">'+
       ['','magazin','tunikafon','penablok','birja'].map(function(v){return '<option value="'+v+'"'+((x.oylik_bolim||'')===v?' selected':'')+'>'+(v?v:'Bo\u2018lim bilan bir xil')+'</option>';}).join('')+'</select>'+
     '<label>Telefon</label><input id="xfTel" value="'+xesc(x.tel||'')+'">'+
@@ -10577,6 +10615,7 @@ function xSave(id){
     tel:x$('xfTel').value.trim()||null, faol:x$('xfFaol').value==='1' };
   var _tv=(x$('xfTun')?x$('xfTun').value==='1':false), _ox=id?XLIST.filter(function(a){return a.id===id})[0]:null;
   if(_tv||(_ox&&('tun_kirim' in _ox))) row.tun_kirim=_tv;
+  var _sn=x$('xfSN')?x$('xfSN').value.trim():''; if(_sn||(_ox&&('savdo_nom' in _ox))) row.savdo_nom=_sn||null;
   var _ob=x$('xfOb')?x$('xfOb').value:''; if(_ob||(_ox&&('oylik_bolim' in _ox))) row.oylik_bolim=_ob||null;
   sbPost('xodim',[row],true,true).then(function(){
     var i=XLIST.findIndex(function(a){return a.id===row.id});
