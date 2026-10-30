@@ -7305,6 +7305,8 @@ document.addEventListener('input',function(e){
   var aq=p.match(/^avans\.days\.\d+\.e\.(\d+)\.[np]$/);
   if(aq){_recalcEmp(Number(aq[1]));}
   var mgd=p.match(/^magazin\.days\.\d+\.([a-z]+)$/);
+  if(mgd&&typeof _SV_MAP!=='undefined'&&(mgd[1] in _SV_MAP)){try{var _di=+p.split('.')[2],_dd=ENTRY.magazin.days[_di];
+    if(_dd&&_dd._sv&&(mgd[1] in _dd._sv)){var _qm=Math.round(Number(v)||0)-Math.round(Number(_dd._sv[mgd[1]])||0);if(!_dd._svm)_dd._svm={};if(_qm)_dd._svm[mgd[1]]=_qm;else{delete _dd._svm[mgd[1]];if(!Object.keys(_dd._svm).length)delete _dd._svm;}}}catch(e){}}
   if(mgd){var key=mgd[1];var jc=document.querySelector('[data-jsum="'+key+'"]');if(jc)jc.textContent=fmt(_S(ENTRY.magazin.days,key));}
   var tgd=p.match(/^tunikafon\.days\.\d+\.([a-z]+)$/);
   if(tgd){var tk=tgd[1];var tjc=document.querySelector('[data-jtsum="'+tk+'"]');if(tjc)tjc.textContent=fmt(_S(ENTRY.tunikafon.days,tk));}
@@ -7357,17 +7359,28 @@ function _svApply(raw,rows,y,m,force){
       var at=days.length;for(var j=0;j<days.length;j++){var sj=_normSana(days[j].sana,y,m);if(/^\d\d\.\d\d\.\d{4}$/.test(sj)&&sj.split('.').reverse().join('')>sana.split('.').reverse().join('')){at=j;break;}}
       days.splice(at,0,dd);res.yangi++;
     }
-    var sv=dd._sv||{}, ch=0;
+    var sv=dd._sv||{}, svm=dd._svm||{}, ch=0;
+    /* 30-okt tuzatish: katak = savdo + QO'LDA QO'SHILGAN qism (_svm). Qo'lda qism faqat foydalanuvchi katakni
+       o'zi o'zgartirganda yoziladi. Avval qo'lda qism "katak − oldingi savdo" deb har safar qayta hisoblanardi va
+       ikki marta qo'llanganda (kun yarmida olingan savdo + qolgani) savdo ustma-ust qo'shilib ketardi. */
     Object.keys(_SV_MAP).forEach(function(k){
       var nv=_svR(_SV_MAP[k](r)), cur=_svR(dd[k]);
+      if(force){if(Number(dd[k])!==nv){dd[k]=nv;ch++;}sv[k]=nv;if(k in svm){delete svm[k];ch++;}return;}
+      /* eski yozuvlar (qo'lda qism hali belgilanmagan):
+         • savdoda 0 bo'lgan, katak qo'lda yozilgan (qarz to'lovlari va h.k.) — hammasi qo'lda qism;
+         • katak savdodagidan KAM (qo'lda vazvrat ayirilgan) — ayirilgan qism qo'lda qism;
+         • katak savdodagidan KO'P — o'zi qo'shmaydi, pastda "farq" deb so'raladi (ustma-ust qo'shilish shu yerda bo'lgan) */
+      if(!(k in svm)&&cur!==0){
+        if(((k in sv)&&_svR(sv[k])===0)||(!(k in sv)&&nv===0)){svm[k]=cur;ch++;}
+        else if((k in sv)&&cur<_svR(sv[k])){svm[k]=cur-_svR(sv[k]);ch++;}
+      }
+      if(k in svm){var tg=_svR(nv+_svR(svm[k]));if(Number(dd[k])!==tg){dd[k]=tg;ch++;}sv[k]=nv;return;}
       if(cur===nv){if(Number(dd[k])!==nv){dd[k]=nv;ch++;}sv[k]=nv;return;}
-      // Savdodan oldin ham yozilgan bo'lsa: qo'lda qo'shilgan qism saqlanadi, savdodagi o'zgarish ustiga qo'shiladi
-      //   katak = savdo + qo'lda qo'shilgan (Billz'ga kirmagan pul uchun)
-      if(force){dd[k]=nv;sv[k]=nv;ch++;return;}
-      if(k in sv){dd[k]=_svR(cur+(nv-_svR(sv[k])));sv[k]=nv;ch++;return;}
-      if(cur===0){dd[k]=nv;sv[k]=nv;ch++;return;}
+      if(cur===0||((k in sv)&&cur===_svR(sv[k]))){dd[k]=nv;sv[k]=nv;ch++;return;}
+      // savdodagidan farq qiladi va qo'lda qism belgilanmagan — o'zi qo'shmaydi, so'raydi
       res.farq.push({sana:sana,k:k,qolda:cur,savdo:nv});
     });
+    if(Object.keys(svm).length)dd._svm=svm;else if(dd._svm){delete dd._svm;ch++;}
     dd._sv=sv;dd._svq={chek:r.chek,jami:_svR(r.jami),qarzga:_svR(r.qarzga)};
     // Vazvrat endi savdodan yozilmaydi: oldin savdodan tushgan qismi olib tashlanadi (qo'lda yozilgani qoladi)
     if('i' in sv){dd.i=_svR(_svR(dd.i)-_svR(sv.i));delete sv.i;ch++;}
@@ -7392,6 +7405,7 @@ function _svFarqHtml(f){
   window._svFarqL=f;
   var MK=function(k){return /^[a-z_]+$/.test(k)&&(k in _SV_MAP);};
   var h='<div style="font-size:13px;margin-bottom:8px">Bu kataklar savdo ulanishidan <b>oldin qo’lda</b> yozilgan va savdodagidan farq qiladi. Har biri uchun tanlang:<br>'+
+    '<span style="font-size:12px;color:#8a1f1f;display:block;margin-bottom:4px">Savdo bir kunni ikki marta (kun yarmida va kechqurun) bergan kunlarda savdo ustma-ust qo\u2019shilib ketgan bo\u2019lishi mumkin \u2014 farq Billz\u2019ga kirmagan pul bo\u2019lmasa, <b>Savdodagi</b>ni tanlang.</span>'+
     '<span style="font-size:12px;color:#555">• <b>Savdodagi</b> — savdodagi son qo’yiladi (qo’lda yozilgani o’chadi).<br>• <b>Qo’lda qolsin</b> — sizning soningiz qoladi, farqi “qo’lda qo’shilgan” deb hisoblanadi; keyin savdo o’zgarsa ustiga qo’shiladi (🟡).</span></div>'+
     '<table style="font-size:12px;border-collapse:collapse;width:100%"><tr style="background:#1F4E79;color:#fff"><th style="padding:4px">Sana</th><th>Ustun</th><th>Qo’lda</th><th>Savdoda</th><th>Farq</th><th></th></tr>';
   f.forEach(function(x,i){h+='<tr style="border-bottom:1px solid #eee" id="svfq'+i+'"><td style="padding:3px 6px">'+x.sana+'</td><td>'+_SV_NOM[x.k]+'</td><td style="text-align:right">'+fmt(x.qolda)+'</td><td style="text-align:right">'+fmt(x.savdo)+'</td><td style="text-align:right;color:'+(x.savdo-x.qolda<0?'#c00':'#1F7A3D')+'">'+fmt(x.savdo-x.qolda)+'</td>'+
@@ -7414,7 +7428,8 @@ function svFarqHal(ids,mode){
   ids.forEach(function(i){var x=f[i];if(!x||x._hal)return;
     var dd=null;for(var j=0;j<days.length;j++){if(_normSana(days[j].sana,y,m)===x.sana){dd=days[j];break;}}
     if(!dd)return; if(!dd._sv)dd._sv={};
-    if(mode==='savdo'){ try{raw._svJurnal.push({t:Date.now(),sana:x.sana,k:x.k,eski:+x.qolda||0,yangi:+x.savdo||0}); if(raw._svJurnal.length>300)raw._svJurnal.splice(0,raw._svJurnal.length-300);}catch(e){} dd[x.k]=x.savdo; }
+    if(mode==='savdo'){ try{raw._svJurnal.push({t:Date.now(),sana:x.sana,k:x.k,eski:+x.qolda||0,yangi:+x.savdo||0}); if(raw._svJurnal.length>300)raw._svJurnal.splice(0,raw._svJurnal.length-300);}catch(e){} dd[x.k]=x.savdo; if(dd._svm){delete dd._svm[x.k]; if(!Object.keys(dd._svm).length)delete dd._svm;} }
+    else { var _qm=_svR((+x.qolda||0)-(+x.savdo||0)); if(!dd._svm)dd._svm={}; if(_qm)dd._svm[x.k]=_qm; else { delete dd._svm[x.k]; if(!Object.keys(dd._svm).length)delete dd._svm; } }
     dd._sv[x.k]=x.savdo; x._hal=1; n++;
     var tr=document.getElementById('svfq'+i); if(tr){tr.style.opacity='.4';var c=tr.lastChild;if(c)c.innerHTML=mode==='savdo'?'✅ savdodagi':'✅ qo’lda qoldi';}
   });
