@@ -6910,9 +6910,9 @@ function renderEntry(){
   (E.magazin.days||[]).forEach(function(dd,di){
     mg+='<tr><td>'+_inp('magazin.days.'+di+'.kurs',dd.kurs,58,true)+'</td>'+
       '<td>'+_inp('magazin.days.'+di+'.sana',dd.sana,64,true)+'</td>';
-    MDC.forEach(function(c){mg+='<td'+_svTd(dd,c[0])+'>'+_inp('magazin.days.'+di+'.'+c[0],dd[c[0]],76)+'</td>';});
+    MDC.forEach(function(c){mg+='<td'+_svTd(dd,c[0])+'>'+_svLk(dd,c[0],_inp('magazin.days.'+di+'.'+c[0],dd[c[0]],76))+'</td>';});
     // M-T kunlik — yoziladigan (JAMI oylik songa qo'shiladi)
-    ['m','n','o','p','q','r','s','t'].forEach(function(mk){mg+='<td'+_svTd(dd,mk)+'>'+_inp('magazin.days.'+di+'.'+mk,dd[mk],76)+'</td>';});
+    ['m','n','o','p','q','r','s','t'].forEach(function(mk){mg+='<td'+_svTd(dd,mk)+'>'+_svLk(dd,mk,_inp('magazin.days.'+di+'.'+mk,dd[mk],76))+'</td>';});
     mg+='<td>'+_delBtn('magazin.days',di)+'</td></tr>';
   });
   // JAMI qatori
@@ -7306,7 +7306,8 @@ document.addEventListener('input',function(e){
   if(aq){_recalcEmp(Number(aq[1]));}
   var mgd=p.match(/^magazin\.days\.\d+\.([a-z]+)$/);
   if(mgd&&typeof _SV_MAP!=='undefined'&&(mgd[1] in _SV_MAP)){try{var _di=+p.split('.')[2],_dd=ENTRY.magazin.days[_di];
-    if(_dd&&_dd._sv&&(mgd[1] in _dd._sv)){var _qm=Math.round(Number(v)||0)-Math.round(Number(_dd._sv[mgd[1]])||0);if(!_dd._svm)_dd._svm={};if(_qm)_dd._svm[mgd[1]]=_qm;else{delete _dd._svm[mgd[1]];if(!Object.keys(_dd._svm).length)delete _dd._svm;}}}catch(e){}}
+    if(_dd&&_svFaqatKun(_dd.sana)){/* qulflangan kun */}
+    else if(_dd&&_dd._sv&&(mgd[1] in _dd._sv)){var _qm=Math.round(Number(v)||0)-Math.round(Number(_dd._sv[mgd[1]])||0);if(!_dd._svm)_dd._svm={};if(_qm)_dd._svm[mgd[1]]=_qm;else{delete _dd._svm[mgd[1]];if(!Object.keys(_dd._svm).length)delete _dd._svm;}}}catch(e){}}
   if(mgd){var key=mgd[1];var jc=document.querySelector('[data-jsum="'+key+'"]');if(jc)jc.textContent=fmt(_S(ENTRY.magazin.days,key));}
   var tgd=p.match(/^tunikafon\.days\.\d+\.([a-z]+)$/);
   if(tgd){var tk=tgd[1];var tjc=document.querySelector('[data-jtsum="'+tk+'"]');if(tjc)tjc.textContent=fmt(_S(ENTRY.tunikafon.days,tk));}
@@ -7345,6 +7346,13 @@ function _svTd(dd,k){
 var _SV_DAN_DEF='2026-10-01';
 function _svDan(){var s=(typeof SOZ!=='undefined'&&SOZ&&SOZ.svDan)||_SV_DAN_DEF;return /^\d{4}-\d\d-\d\d$/.test(s)?s:_SV_DAN_DEF;}
 function _svEski(sana){var p=String(sana||'').split('.');if(p.length!==3)return false;return (p[2]+'-'+p[1]+'-'+p[0])<_svDan();}
+/* KROFF Savdo to'liq ishlay boshlagan kundan (1-noyabr) — savdo ustunlari FAQAT savdodan:
+   qo'lda qism yo'q, katak qulflangan, har olishda savdodagi songa tenglanadi. */
+var _SV_FAQAT_DEF='2026-11-01';
+function _svFaqat(){var s=(typeof SOZ!=='undefined'&&SOZ&&SOZ.svFaqat)||_SV_FAQAT_DEF;return /^\d{4}-\d\d-\d\d$/.test(s)?s:_SV_FAQAT_DEF;}
+function _svFaqatKun(sana){var p=String(sana||'').split('.');if(p.length!==3||p[2].length!==4)return false;return (p[2]+'-'+p[1]+'-'+p[0])>=_svFaqat();}
+function _svLk(dd,k,html){if(!(dd&&(k in _SV_MAP)&&_svFaqatKun(dd.sana)))return html;
+  return html.replace('<input ','<input readonly tabindex="-1" title="1-noyabrdan faqat Savdodan (qo\u2019lda o\u2019zgarmaydi)" ').replace('border:1px solid #ddd;','border:1px solid #cfe6cf;background:#f3faf3;color:#1F4E79;');}
 function _svR(v){return Math.round(Number(v)||0);} // butun so‘m (kasr kataklarda noto‘g‘ri ko‘rinardi)
 function _svSana(iso){var p=String(iso).split('-');return p[2]+'.'+p[1]+'.'+p[0];}
 function _svStat(t,c){window._svStatTxt=t;var el=document.getElementById('svStat');if(el){el.textContent=t;el.style.color=c||'#375623';}}
@@ -7359,13 +7367,13 @@ function _svApply(raw,rows,y,m,force){
       var at=days.length;for(var j=0;j<days.length;j++){var sj=_normSana(days[j].sana,y,m);if(/^\d\d\.\d\d\.\d{4}$/.test(sj)&&sj.split('.').reverse().join('')>sana.split('.').reverse().join('')){at=j;break;}}
       days.splice(at,0,dd);res.yangi++;
     }
-    var sv=dd._sv||{}, svm=dd._svm||{}, ch=0;
+    var sv=dd._sv||{}, svm=dd._svm||{}, ch=0, faqat=String(r.kun)>=_svFaqat();
     /* 30-okt tuzatish: katak = savdo + QO'LDA QO'SHILGAN qism (_svm). Qo'lda qism faqat foydalanuvchi katakni
        o'zi o'zgartirganda yoziladi. Avval qo'lda qism "katak − oldingi savdo" deb har safar qayta hisoblanardi va
        ikki marta qo'llanganda (kun yarmida olingan savdo + qolgani) savdo ustma-ust qo'shilib ketardi. */
     Object.keys(_SV_MAP).forEach(function(k){
       var nv=_svR(_SV_MAP[k](r)), cur=_svR(dd[k]);
-      if(force){if(Number(dd[k])!==nv){dd[k]=nv;ch++;}sv[k]=nv;if(k in svm){delete svm[k];ch++;}return;}
+      if(force||faqat){if(Number(dd[k])!==nv){dd[k]=nv;ch++;}sv[k]=nv;if(k in svm){delete svm[k];ch++;}return;}
       /* eski yozuvlar (qo'lda qism hali belgilanmagan):
          • savdoda 0 bo'lgan, katak qo'lda yozilgan (qarz to'lovlari va h.k.) — hammasi qo'lda qism;
          • katak savdodagidan KAM (qo'lda vazvrat ayirilgan) — ayirilgan qism qo'lda qism;
