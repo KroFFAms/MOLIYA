@@ -6903,7 +6903,8 @@ function renderEntry(){
   // MAGAZIN daily — BARCHA ustunlar (aylanma) + JAMI qatori
   // daily kalitlar: kurs,sana + c,d,e,f,g,h,i,j,k,l ; JAMI da M-T oylik inputlar
   var MDC=[['c','HR kirim'],['d','Qarzdan-qarzga'],['e','Xaridor payme1'],['f','Xaridor payme2'],['g','Qarz (karta)'],['h','Qarz (naqd)'],['i','Vazvrat'],['j','Avans'],['k','HR naqd'],['hr_yech','\ud83c\udfe7 HR dan naqd yechildi'],['l','KLIK']];
-  var mg='<div style="overflow:auto"><table style="min-width:1900px;font-size:11px"><thead><tr style="background:#1F4E79;color:#fff">'+
+  var mg='<style>.mgTbl>thead>tr>th:nth-child(2),.mgTbl>tbody>tr>td:nth-child(2){position:sticky;left:0;z-index:3;box-shadow:2px 0 3px rgba(0,0,0,.12)}.mgTbl>tbody>tr>td:nth-child(2){background:#fff}.mgTbl>thead>tr>th:nth-child(2){background:#1F4E79}</style>'+
+    '<div style="overflow:auto"><table class="mgTbl" style="min-width:1900px;font-size:11px"><thead><tr style="background:#1F4E79;color:#fff">'+
     '<th style="padding:4px 6px">$ kurs</th><th>Sana</th>';
   MDC.forEach(function(c){mg+='<th style="white-space:nowrap">'+c[1]+'</th>';});
   mg+='<th style="white-space:nowrap">Magazin naqd</th><th>Karta</th><th style="white-space:nowrap">Payme1 (jami)</th><th style="white-space:nowrap">Payme2 (jami)</th><th style="white-space:nowrap">HR birja</th><th>Tunikafon</th><th>Travertin</th><th style="white-space:nowrap">Oldingi oy qarz</th><th></th></tr></thead><tbody>';
@@ -7348,7 +7349,7 @@ function _svDan(){var s=(typeof SOZ!=='undefined'&&SOZ&&SOZ.svDan)||_SV_DAN_DEF;
 function _svEski(sana){var p=String(sana||'').split('.');if(p.length!==3)return false;return (p[2]+'-'+p[1]+'-'+p[0])<_svDan();}
 /* KROFF Savdo to'liq ishlay boshlagan kundan (1-noyabr) — savdo ustunlari FAQAT savdodan:
    qo'lda qism yo'q, katak qulflangan, har olishda savdodagi songa tenglanadi. */
-var _SV_FAQAT_DEF='2026-11-01';
+var _SV_FAQAT_DEF='2026-11-03';   /* 1–2-noyabr qo'lda to'ldirish uchun ochildi; 3-noyabrdan faqat savdodan */
 function _svFaqat(){var s=(typeof SOZ!=='undefined'&&SOZ&&SOZ.svFaqat)||_SV_FAQAT_DEF;return /^\d{4}-\d\d-\d\d$/.test(s)?s:_SV_FAQAT_DEF;}
 function _svFaqatKun(sana){var p=String(sana||'').split('.');if(p.length!==3||p[2].length!==4)return false;return (p[2]+'-'+p[1]+'-'+p[0])>=_svFaqat();}
 function _svLk(dd,k,html){if(!(dd&&(k in _SV_MAP)&&_svFaqatKun(dd.sana)))return html;
