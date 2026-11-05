@@ -542,6 +542,7 @@ function openSozlamalar(){
   [['pen','hide_pen'],['xarq','hide_xarq'],['bulush','hide_bulush'],['hr','hide_hr']].forEach(function(p){
     var el=document.getElementById('soz_show_'+p[0]); if(el) el.checked = !SOZ[p[1]];
   });
+  try{_svQForm();}catch(e){}
   document.getElementById('soz_old_pin').value='';
   document.getElementById('soz_new_pin').value='';
   document.getElementById('soz_new_pin2').value='';
@@ -572,6 +573,7 @@ function saveSozlamalar(){
   [['pen','hide_pen'],['xarq','hide_xarq'],['bulush','hide_bulush'],['hr','hide_hr']].forEach(function(p){
     var el=document.getElementById('soz_show_'+p[0]); if(el) SOZ[p[1]] = el.checked ? 0 : 1;
   });
+  try{_svQSave();}catch(e){console.error('svQSave',e);}
   try{ if(typeof renderEntry==='function' && typeof ENTRY!=='undefined' && ENTRY) renderEntry(); }catch(e){}
 
   // Parol o'zgartirish
@@ -1014,6 +1016,11 @@ function exportFullHtml(silent, customName, safe){
     <label style="display:flex;align-items:center;gap:7px;font-size:12px;margin-bottom:5px;cursor:pointer"><input type="checkbox" id="soz_show_bulush"> 🏗️ Birja: “Pul tushgan oy” ustuni</label>
     <label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer"><input type="checkbox" id="soz_show_hr"> 🏦 Qo’shimcha HR hisoblari (ASTRA, SALIMOVA…)</label>
     <div style="font-size:11px;color:#888;margin-top:6px">Bular hech qachon to’ldirilmagani uchun yashirilgan. Kerak bo’lsa belgilang.</div>
+  </div>
+  <div style="border-top:1px solid #eee;margin:14px 0 10px;padding-top:12px">
+    <div style="font-size:12px;font-weight:700;color:#1F4E79;margin-bottom:4px">🔒 SAVDODAN KELADIGAN USTUNLAR</div>
+    <div style="font-size:11px;color:#888;margin-bottom:8px">🔒 Savdodan — avtomatik to’ladi va qulflanadi (qo’lda o’zgarmaydi). ✍️ Qo’lda — savdo tegmaydi, o’zingiz yozasiz. Tanlov hamma kompyuterga bir xil boradi.</div>
+    <div id="soz_svq" style="display:grid;gap:5px"></div>
   </div>
   <div style="display:flex;gap:8px">
     <button onclick="saveSozlamalar()" style="flex:1;background:#375623;color:#fff;border:none;border-radius:7px;padding:10px;font-size:14px;cursor:pointer;font-weight:500">✅ Saqlash</button>
@@ -7338,6 +7345,7 @@ var _SV_NOM={m:'Magazin naqd',i:'Vazvrat',n:'Karta',o:'Payme1',f:'Payme2',c:'HR 
 var _svLast={}, _svBusy=false;
 function _svTd(dd,k){
   if(!(dd&&dd._sv&&k in dd._sv))return '';
+  if((k in _SV_MAP)&&_svQolda(_svQEnt(),k))return '';
   var v=Number(dd[k]||0),sv=Number(dd._sv[k]||0);
   var _vt='';if(k==='i'&&dd._svi){var q=dd._svi;_vt=' · naqd '+fmt(q.naqd)+(q.karta?', karta '+fmt(q.karta):'')+(q.payme1?', Payme1 '+fmt(q.payme1):'')+(q.payme2?', Payme2 '+fmt(q.payme2):'')+(q.bank?', HR '+fmt(q.bank):'')+(q.qarz?', qarzdan '+fmt(q.qarz):'');}
   if(v===sv) return v!==0?' style="background:#D8F0D8" title="Savdodan avtomatik'+_vt+'"':'';
@@ -7352,14 +7360,44 @@ function _svEski(sana){var p=String(sana||'').split('.');if(p.length!==3)return 
 var _SV_FAQAT_DEF='2026-11-03';   /* 1–2-noyabr qo'lda to'ldirish uchun ochildi; 3-noyabrdan faqat savdodan */
 function _svFaqat(){var s=(typeof SOZ!=='undefined'&&SOZ&&SOZ.svFaqat)||_SV_FAQAT_DEF;return /^\d{4}-\d\d-\d\d$/.test(s)?s:_SV_FAQAT_DEF;}
 function _svFaqatKun(sana){var p=String(sana||'').split('.');if(p.length!==3||p[2].length!==4)return false;return (p[2]+'-'+p[1]+'-'+p[0])>=_svFaqat();}
-function _svLk(dd,k,html){if(!(dd&&(k in _SV_MAP)&&_svFaqatKun(dd.sana)))return html;
+function _svLk(dd,k,html){if(!(dd&&(k in _SV_MAP)&&_svFaqatKun(dd.sana)))return html;if(_svQolda(_svQEnt(),k))return html;
   return html.replace('<input ','<input readonly tabindex="-1" title="1-noyabrdan faqat Savdodan (qo\u2019lda o\u2019zgarmaydi)" ').replace('border:1px solid #ddd;','border:1px solid #cfe6cf;background:#f3faf3;color:#1F4E79;');}
+/* ===== 5-noy: qaysi ustun Savdodan (qulflangan), qaysi biri qo'lda — Sozlamalarda tanlanadi =====
+   Tanlov oyning o'zida (_raw._svQol) saqlanadi — bulut orqali hamma kompyuterga bir xil boradi.
+   Yangi oy uchun Sozlamalardagi (SOZ.svQol) yoki standart tanlov olinadi. Standart: KLIK — qo'lda. */
+var _SVQ_DEF={l:1};
+var _SVQ_KEYS=['m','n','o','f','c','h','g','e','r','s','l','t','xa','xr','tun'];
+function _svQdef(){var q=(typeof SOZ!=='undefined'&&SOZ&&SOZ.svQol&&typeof SOZ.svQol==='object')?SOZ.svQol:_SVQ_DEF;return JSON.parse(JSON.stringify(q));}
+function _svQ(raw){return (raw&&raw._svQol&&typeof raw._svQol==='object')?raw._svQol:_svQdef();}
+function _svQolda(raw,k){return !!_svQ(raw)[k];}
+function _svQEnt(){return (typeof ENTRY!=='undefined'&&ENTRY)?ENTRY:null;}
+function _svQForm(){var el=document.getElementById('soz_svq');if(!el)return;var cur=_svQ(_svQEnt()),h='';
+  _SVQ_KEYS.forEach(function(k){var nm=_SV_NOM[k]||k,q=!!cur[k];
+    h+='<div style="display:flex;align-items:center;gap:8px;font-size:12px"><span style="flex:1">'+nm+'</span>'+
+      '<label style="cursor:pointer;padding:4px 8px;border-radius:6px;border:1px solid '+(q?'#ddd':'#7FB77F')+';background:'+(q?'#fff':'#E8F5E8')+'"><input type="radio" name="svq_'+k+'" value="0"'+(q?'':' checked')+' onchange="_svQForm2(this)"> 🔒 Savdodan</label>'+
+      '<label style="cursor:pointer;padding:4px 8px;border-radius:6px;border:1px solid '+(q?'#E0B000':'#ddd')+';background:'+(q?'#FFF6D6':'#fff')+'"><input type="radio" name="svq_'+k+'" value="1"'+(q?' checked':'')+' onchange="_svQForm2(this)"> ✍️ Qo’lda</label></div>';});
+  el.innerHTML=h;}
+function _svQForm2(inp){var ls=inp.closest('div').querySelectorAll('label');ls.forEach(function(l){var on=l.querySelector('input').checked,q=l.querySelector('input').value==='1';l.style.background=on?(q?'#FFF6D6':'#E8F5E8'):'#fff';l.style.borderColor=on?(q?'#E0B000':'#7FB77F'):'#ddd';});}
+function _svQSave(){var el=document.getElementById('soz_svq');if(!el||!el.innerHTML)return;var q={};
+  _SVQ_KEYS.forEach(function(k){var r=el.querySelector('input[name="svq_'+k+'"]:checked');if(r&&r.value==='1')q[k]=1;});
+  var old=JSON.stringify(_svQ(_svQEnt()));SOZ.svQol=q;try{localStorage.setItem('moliya_soz',JSON.stringify(SOZ));}catch(e){}
+  if(old===JSON.stringify(q))return;
+  /* Savdo to'liq ishlay boshlagan oydan (noyabr 2026) boshlab barcha oylarga yoziladi va bulutga chiqariladi */
+  var fq=_svFaqat().split('-'),from=(+fq[0])*12+(+fq[1]-1),n=0;
+  Object.keys(DB).forEach(function(y){if(isNaN(Number(y)))return;Object.keys(DB[y]).forEach(function(oi){var d=DB[y][oi];if(!d||!d._raw||Number(y)*12+Number(oi)<from)return;
+    d._raw._svQol=JSON.parse(JSON.stringify(q));n++;try{cloudPushMonth(y,oi);}catch(e){}});});
+  var E=_svQEnt();if(E&&Number(E.year)*12+(Number(E.month)-1)>=from)E._svQol=JSON.parse(JSON.stringify(q));
+  try{save();}catch(e){}
+  try{if(E&&typeof autoSaveEntrySilent==='function')autoSaveEntrySilent();}catch(e){}
+  try{alert('✅ Savdo ustunlari sozlandi ('+n+' oy). Qo’lda: '+(Object.keys(q).map(function(k){return _SV_NOM[k]||k;}).join(', ')||'yo’q'));}catch(e){}
+}
 function _svR(v){return Math.round(Number(v)||0);} // butun so‘m (kasr kataklarda noto‘g‘ri ko‘rinardi)
 function _svSana(iso){var p=String(iso).split('-');return p[2]+'.'+p[1]+'.'+p[0];}
 function _svStat(t,c){window._svStatTxt=t;var el=document.getElementById('svStat');if(el){el.textContent=t;el.style.color=c||'#375623';}}
 function _svApply(raw,rows,y,m,force){
   if(!raw.magazin)raw.magazin={};if(!raw.magazin.days)raw.magazin.days=[];
   var days=raw.magazin.days, res={upd:0,kun:0,yangi:0,farq:[]};
+  if(!raw._svQol)raw._svQol=_svQdef();var _Q=raw._svQol;
   rows.forEach(function(r){
     var sana=_svSana(r.kun), dd=null;
     for(var i=0;i<days.length;i++){if(_normSana(days[i].sana,y,m)===sana){dd=days[i];break;}}
@@ -7373,6 +7411,7 @@ function _svApply(raw,rows,y,m,force){
        o'zi o'zgartirganda yoziladi. Avval qo'lda qism "katak − oldingi savdo" deb har safar qayta hisoblanardi va
        ikki marta qo'llanganda (kun yarmida olingan savdo + qolgani) savdo ustma-ust qo'shilib ketardi. */
     Object.keys(_SV_MAP).forEach(function(k){
+      if(_Q[k])return; /* qo'lda ustun — savdo tegmaydi */
       var nv=_svR(_SV_MAP[k](r)), cur=_svR(dd[k]);
       if(force||faqat){if(Number(dd[k])!==nv){dd[k]=nv;ch++;}sv[k]=nv;if(k in svm){delete svm[k];ch++;}return;}
       /* eski yozuvlar (qo'lda qism hali belgilanmagan):
@@ -7534,9 +7573,9 @@ function savdoOl(opt){
       /* Billz vazvrati hech bir kunda qolmasin (oldin savdodan tushgan bo'lsa — faqat o'sha qismi olib tashlanadi) */
       try{((raw.magazin&&raw.magazin.days)||[]).forEach(function(dd){if(dd&&dd._sv&&('i' in dd._sv)){dd.i=_svR(_svR(dd.i)-_svR(dd._sv.i));delete dd._sv.i;delete dd._svi;res.upd++;res.kun++;}});}catch(e){}
       try{_svXq(raw,rows,!!opt.force,res);}catch(e){console.error('svXq',e);}
-      try{_svXa(raw,rowsY,!!opt.force,res);}catch(e){console.error('svXa',e);}
-      try{_svXr(raw,rowsY,!!opt.force,res);}catch(e){console.error('svXr',e);}
-      try{if(Array.isArray(window._svTunList))_svTun(raw,window._svTunList.filter(function(x){return String(x.sana)>=_dn;}),!!opt.force,res);}catch(e){console.error('svTun',e);}
+      try{if(!_svQolda(raw,'xa'))_svXa(raw,rowsY,!!opt.force,res);}catch(e){console.error('svXa',e);}
+      try{if(!_svQolda(raw,'xr'))_svXr(raw,rowsY,!!opt.force,res);}catch(e){console.error('svXr',e);}
+      try{if(Array.isArray(window._svTunList)&&!_svQolda(raw,'tun'))_svTun(raw,window._svTunList.filter(function(x){return String(x.sana)>=_dn;}),!!opt.force,res);}catch(e){console.error('svTun',e);}
       if(_stD&&_stD._k===y+'-'+m)_stD=null;
       var vaqt=new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
       var t='✅ '+vaqt+' · '+rows.length+' kun savdo'+(res.upd?' · '+res.kun+' kun yangilandi':' · o’zgarish yo’q')+(res.farq.length?' · ⚠️ '+res.farq.length+' ta farq':'')+(res.xaSkip?' · karta/bank chiqimi '+fmt(res.xaSkip)+' (qo’lda)':'');
