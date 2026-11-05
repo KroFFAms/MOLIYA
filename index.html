@@ -7640,14 +7640,35 @@ function _svXa(raw,rows,force,res){
 function _svTamNom(raw,nm){
   nm=String(nm||'').trim(); if(!nm)return '';
   if(!raw.suppliers)raw.suppliers=[];
-  var bare=function(x){return String(x||'').replace(/\s*\((so.?m|\$)\)\s*$/i,'').trim().toLowerCase();};
-  for(var i=0;i<raw.suppliers.length;i++){var n=(raw.suppliers[i].nom||'').trim();if(n&&bare(n)===nm.toLowerCase())return n;}
-  var full=nm+' (so\u2019m)';
+  /* 5-noy tuzatish: Savdo nomi o'zi "(so'm)" bilan keladi — avval "Farrux (so'm) (so’m)" degan ikkinchi ta'minotchi ochilib,
+     kirim o'shanga tushardi va asl ta'minotchi qarzi o'zgarmasdi. Endi qo'shimchasiz, apostrof/bo'shliqqa qaramay solishtiriladi. */
+  var norm=function(x){return String(x||'').replace(/[’‘`ʻʼ]/g,"'").replace(/\s+/g,' ').trim().toLowerCase();};
+  var SUF=/\s*\((so.?m|\$)\)\s*$/i;
+  while(SUF.test(nm))nm=nm.replace(SUF,'').trim();
+  var b=norm(nm),usd=-1;
+  for(var i=0;i<raw.suppliers.length;i++){var n=(raw.suppliers[i].nom||'').trim();if(!n)continue;var t=n,ns=0;while(SUF.test(t)){t=t.replace(SUF,'').trim();ns++;}
+    if(ns>1||norm(t)!==b)continue; /* xato ochilgan "(so'm) (so’m)" nusxasi tanlanmaydi */ if(/\(\$\)\s*$/.test(n)){if(usd<0)usd=i;continue;} return n;}
+  var full=nm+' (so’m)';
   raw.suppliers.push({nom:full,oldingi:0,ular_q:0,kelgan:0,tolandi:0,astatka:0});
   return full;
 }
+/* Avval xato ochilgan "… (so'm) (so’m)" ta'minotchilarni tozalash: qatorlar asl ta'minotchiga o'tkaziladi,
+   bo'sh qolgan nusxa o'chiriladi (qo'lda son yozilgan bo'lsa tegilmaydi). */
+function _svTamFix(raw,res){
+  var DUP=/\((so.?m|\$)\)\s*\((so.?m|\$)\)\s*$/i, S=raw.suppliers||[], X=(raw.xarid&&raw.xarid.rows)||[], n=0;
+  var dups=S.filter(function(s){return s&&DUP.test(s.nom||'');});
+  if(!dups.length&&!X.some(function(x){return x&&DUP.test(x.tam||'');}))return 0;
+  X.forEach(function(x){if(x&&DUP.test(x.tam||'')){var t=_svTamNom(raw,x.tam);if(t&&t!==x.tam){x.tam=t;n++;}}});
+  for(var i=S.length-1;i>=0;i--){var s=S[i];if(!s||!DUP.test(s.nom||''))continue;
+    if(+s.oldingi||+s.ular_q||+s.kelgan||+s.tolandi)continue;
+    if(X.some(function(x){return x&&x.tam===s.nom;}))continue;
+    S.splice(i,1);n++;}
+  if(n&&res)res.upd+=n;
+  return n;
+}
 function _svXr(raw,rows,force,res){
   if(!raw.xarid)raw.xarid={rows:[]};if(!raw.xarid.rows)raw.xarid.rows=[];
+  try{_svTamFix(raw,res);}catch(e){console.error('svTamFix',e);}
   var X=raw.xarid.rows, want={};
   rows.forEach(function(r){(r.xarid||[]).forEach(function(x){
     var t={naqd:0,plastik:0,hr:0,ichki:0};
