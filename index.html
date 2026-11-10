@@ -7314,7 +7314,7 @@ document.addEventListener('input',function(e){
   if(aq){_recalcEmp(Number(aq[1]));}
   var mgd=p.match(/^magazin\.days\.\d+\.([a-z]+)$/);
   if(mgd&&typeof _SV_MAP!=='undefined'&&(mgd[1] in _SV_MAP)){try{var _di=+p.split('.')[2],_dd=ENTRY.magazin.days[_di];
-    if(_dd&&_svFaqatKun(_dd.sana)){/* qulflangan kun */}
+    if(_dd&&_svFaqatKun(_dd.sana)&&!(_dd._svp&&_dd._svp[mgd[1]])){/* qulflangan kun */}
     else if(_dd&&_dd._sv&&(mgd[1] in _dd._sv)){var _qm=Math.round(Number(v)||0)-Math.round(Number(_dd._sv[mgd[1]])||0);if(!_dd._svm)_dd._svm={};if(_qm)_dd._svm[mgd[1]]=_qm;else{delete _dd._svm[mgd[1]];if(!Object.keys(_dd._svm).length)delete _dd._svm;}}}catch(e){}}
   if(mgd){var key=mgd[1];var jc=document.querySelector('[data-jsum="'+key+'"]');if(jc)jc.textContent=fmt(_S(ENTRY.magazin.days,key));}
   var tgd=p.match(/^tunikafon\.days\.\d+\.([a-z]+)$/);
@@ -7361,7 +7361,24 @@ var _SV_FAQAT_DEF='2026-11-03';   /* 1–2-noyabr qo'lda to'ldirish uchun ochild
 function _svFaqat(){var s=(typeof SOZ!=='undefined'&&SOZ&&SOZ.svFaqat)||_SV_FAQAT_DEF;return /^\d{4}-\d\d-\d\d$/.test(s)?s:_SV_FAQAT_DEF;}
 function _svFaqatKun(sana){var p=String(sana||'').split('.');if(p.length!==3||p[2].length!==4)return false;return (p[2]+'-'+p[1]+'-'+p[0])>=_svFaqat();}
 function _svLk(dd,k,html){if(!(dd&&(k in _SV_MAP)&&_svFaqatKun(dd.sana)))return html;if(_svQolda(_svQEnt(),k))return html;
-  return html.replace('<input ','<input readonly tabindex="-1" title="1-noyabrdan faqat Savdodan (qo\u2019lda o\u2019zgarmaydi)" ').replace('border:1px solid #ddd;','border:1px solid #cfe6cf;background:#f3faf3;color:#1F4E79;');}
+  /* 10-noy: ✏️ qalamcha — qulflangan katakni shu kun uchun qo'lda o'zgartirish (Savdodagi son + qo'lda farq saqlanadi) */
+  var _m=String(html).match(/data-p="magazin\.days\.(\d+)\./),_di=_m?_m[1]:'';
+  var _bs='position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;border:1px solid #d0d5dd;background:#fff;font-size:10px;line-height:18px;padding:0;cursor:pointer;z-index:2';
+  if(dd._svp&&dd._svp[k])return '<span style="position:relative;display:inline-block">'+html.replace('border:1px solid #ddd;','border:1px solid #E0B000;background:#FFF6D6;')+(_di!==''?'<button type="button" title="Qo\u2019lda o\u2019zgartirishni bekor qilish (Savdodagiga qaytarish)" onclick="_svUnpen('+_di+',\''+k+'\')" style="'+_bs+'">\u21ba</button>':'')+'</span>';
+  return '<span style="position:relative;display:inline-block">'+html.replace('<input ','<input readonly tabindex="-1" title="Savdodan (o\u2019zgartirish uchun \u270f\ufe0f ni bosing)" ').replace('border:1px solid #ddd;','border:1px solid #cfe6cf;background:#f3faf3;color:#1F4E79;')+(_di!==''?'<button type="button" title="Qo\u2019lda o\u2019zgartirish" onclick="_svPen('+_di+',\''+k+'\')" style="'+_bs+'">\u270f\ufe0f</button>':'')+'</span>';}
+function _svPen(di,k){var dd=ENTRY&&ENTRY.magazin&&ENTRY.magazin.days[di];if(!dd)return;
+  if(!confirm((dd.sana||'')+' \u00b7 '+(_SV_NOM[k]||k)+'\n\nBu katakni qo\u2019lda o\u2019zgartirasizmi?\nSavdodagi son saqlanadi, siz yozgan farq (qo\u2019lda qism) uning ustiga qo\u2019shiladi \u2014 Savdo yangilansa ham yo\u2019qolmaydi.'))return;
+  if(!dd._svp)dd._svp={};dd._svp[k]=1;
+  try{renderEntry();}catch(e){}
+  setTimeout(function(){var el=document.querySelector('[data-p="magazin.days.'+di+'.'+k+'"]');if(el){el.focus();try{el.select();}catch(e){}}},80);
+  clearTimeout(window._autoT);window._autoT=setTimeout(autoSaveEntrySilent,1500);}
+function _svUnpen(di,k){var dd=ENTRY&&ENTRY.magazin&&ENTRY.magazin.days[di];if(!dd)return;
+  if(!confirm('Qo\u2019lda yozilgan farq o\u2019chirilib, katak Savdodagi songa qaytarilsinmi?'))return;
+  if(dd._svp){delete dd._svp[k];if(!Object.keys(dd._svp).length)delete dd._svp;}
+  if(dd._svm){delete dd._svm[k];if(!Object.keys(dd._svm).length)delete dd._svm;}
+  if(dd._sv&&(k in dd._sv))dd[k]=_svR(dd._sv[k]);
+  try{renderEntry();}catch(e){}
+  clearTimeout(window._autoT);window._autoT=setTimeout(autoSaveEntrySilent,1500);}
 /* ===== 5-noy: qaysi ustun Savdodan (qulflangan), qaysi biri qo'lda — Sozlamalarda tanlanadi =====
    Tanlov oyning o'zida (_raw._svQol) saqlanadi — bulut orqali hamma kompyuterga bir xil boradi.
    Yangi oy uchun Sozlamalardagi (SOZ.svQol) yoki standart tanlov olinadi. Standart: KLIK — qo'lda. */
@@ -7413,6 +7430,7 @@ function _svApply(raw,rows,y,m,force){
     Object.keys(_SV_MAP).forEach(function(k){
       if(_Q[k])return; /* qo'lda ustun — savdo tegmaydi */
       var nv=_svR(_SV_MAP[k](r)), cur=_svR(dd[k]);
+      if(faqat&&!force&&dd._svp&&dd._svp[k]){var _tg=_svR(nv+_svR(svm[k]||0));if(Number(dd[k])!==_tg){dd[k]=_tg;ch++;}sv[k]=nv;return;}
       if(force||faqat){if(Number(dd[k])!==nv){dd[k]=nv;ch++;}sv[k]=nv;if(k in svm){delete svm[k];ch++;}return;}
       /* eski yozuvlar (qo'lda qism hali belgilanmagan):
          • savdoda 0 bo'lgan, katak qo'lda yozilgan (qarz to'lovlari va h.k.) — hammasi qo'lda qism;
@@ -7670,7 +7688,14 @@ function _svXr(raw,rows,force,res){
   if(!raw.xarid)raw.xarid={rows:[]};if(!raw.xarid.rows)raw.xarid.rows=[];
   try{_svTamFix(raw,res);}catch(e){console.error('svTamFix',e);}
   var X=raw.xarid.rows, want={};
-  rows.forEach(function(r){(r.xarid||[]).forEach(function(x){
+  /* 10-noy: Savdoda xato kiritilib, keyin o'chirilgan (teskari yozuv bilan bekor qilingan) kirim Moliya'da +/− ikki qator bo'lib
+     ko'rinardi. Bir xil ta'minotchi + tovar, summasi qarama-qarshi va to'lovsiz bo'lsa — ikkalasi ham olinmaydi (yig'indisi 0). */
+  var _skip={},_all=[];rows.forEach(function(r){(r.xarid||[]).forEach(function(x){_all.push(x);});});
+  var _np=function(x){var t=x.tol||{};for(var k in t){if(_svR(t[k]))return false;}return true;};
+  _all.forEach(function(a){if(_skip[a.key]||_svR(a.summa)>=0||!_np(a))return;
+    for(var i=0;i<_all.length;i++){var b=_all[i];if(b===a||_skip[b.key]||!_np(b))continue;
+      if(String(b.tam||'')===String(a.tam||'')&&String(b.tovar||'')===String(a.tovar||'')&&_svR(b.summa)===-_svR(a.summa)&&_svR(b.miqdor)===-_svR(a.miqdor)){_skip[a.key]=1;_skip[b.key]=1;break;}}});
+  rows.forEach(function(r){(r.xarid||[]).forEach(function(x){if(_skip[x.key])return;
     var t={naqd:0,plastik:0,hr:0,ichki:0};
     Object.keys(x.tol||{}).forEach(function(a){var v=_svR(x.tol[a]);
       if(a==='naqd')t.naqd+=v;else if(a==='payme1'||a==='payme2'||a==='payme')t.plastik+=v;else if(a==='ichki')t.ichki+=v;else t.hr+=v;});
